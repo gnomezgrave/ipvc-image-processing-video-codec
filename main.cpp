@@ -1,27 +1,7 @@
 /**
-    This is my solution for a few problems that we will be facing for implementing a video codec.
-    Those problems are,
-        1. Most codecs use motion vectors, and we can't because we don't have the knowledge
-        and its out of syllabus.
-        2. It's hard to achieve the compression levels gained from motion vectors without
-        using them.
-        3. Will madam compare our codec with other codecs?
-
-    This solution uses the differences between two frames and keeps adding it so the image is complete.
-    The details that are removed will be compensated by blurring, it does a edge detection of the generated
-    image and blurs out the places of the image that are not near the edges, so the edges keep sharpened
-    and image quality is preseved to some level.
-
-    The file will be a normal compressed file but what will be compressed using lzma(didnt add that yet)
-    with 0s in the unchanged pixels the compression ratio will be high, we will control how much of changed
-    pixels go in to the file as data. This can be done by changing the variable 'quality'.
-
-    We have to decide on compressing every frame individually or compressing the whole file.
-
-    Can someone add lzma to this?
-
-    The terminal output is
-    <percentage of kept pixels> <level used for cutting off pixels>
+    2013-03-30
+    Without using LZMA nearly 50% of space is saved using block based phase correlation.
+    (savings depends on video type, if its nearly static better compression can be achieved)
 
 */
 
@@ -33,21 +13,12 @@
 #include <opencv2/core/core.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
 #include <opencv2/highgui/highgui.hpp>
+#define BLOCK_SIZE 20
 
 #define OUT_FILE "/home/madura/out.ipv"
 
 #define PIXEL(jump, bigj, smallj) (((jump)*(bigj) + (smallj))*3)
 #define ARR2D(jump, bigj, smallj) (((jump)*(bigj) + (smallj)))
-
-#define SET(dest, src, at)   \
-    dest[at]=src[at]; \
-    dest[at+1]=src[at+1]; \
-    dest[at+2]=src[at+2];
-
-#define SET_EXT(dest, src, at1, at2)   \
-    dest[at1]=src[at2]; \
-    dest[at1+1]=src[at2+1]; \
-    dest[at1+2]=src[at2+2];
 
 #define AVG(a,b,c) (((a)+(b)+(c))/3.0)
 
@@ -65,14 +36,32 @@
 /* read/write buffer sizes */
 #define IN_BUF_MAX	4096
 #define OUT_BUF_MAX	4096
+
 struct ipvc_file_header_t{
     unsigned height;
     unsigned width;
 };
 
-struct ipvc_frame_header_t{
-    unsigned length;
+struct ipvc_frame_full_header_t {
+    uchar frame_type=126; // 126: full frame
 };
+
+struct ipvc_frame_header_t{
+    uchar frame_type=122; // 122: blocks
+    ushort blocks;
+    ushort block_moves;
+};
+
+struct ipvc_block_t{
+    uchar data[BLOCK_SIZE*BLOCK_SIZE*3];
+};
+
+struct ipvc_block_move_t{
+    ushort block_id;
+    float move_h;
+    float move_w;
+};
+
 using namespace cv;
 using namespace std;
 
@@ -83,101 +72,8 @@ int blurmask3[3][3] = { { 1, 2, 1 } ,
                         { 1, 2, 1 }
                       };
 
-void divComplex(InputArray _src1, InputArray _src2, OutputArray _dst)
-{
-    Mat src1 = _src1.getMat();
-    Mat src2 = _src2.getMat();
-
-    CV_Assert( src1.type() == src2.type() && src1.size() == src2.size());
-    CV_Assert( src1.type() == CV_32FC2 || src1.type() == CV_64FC2 );
-
-    _dst.create(src1.size(), src1.type());
-    Mat dst  = _dst.getMat();
-
-    int length = src1.rows*src1.cols;
-
-    if(src1.depth() == CV_32F)
-    {
-        const float* dataA = (const float*)src1.data;
-        const float* dataB = (const float*)src2.data;
-        float* dataC = (float*)dst.data;
-        float eps = FLT_EPSILON; // prevent div0 problems
-
-        for(int j = 0; j < length - 1; j += 2)
-        {
-            double denom = (double)(dataB[j]*dataB[j] + dataB[j+1]*dataB[j+1] + eps);
-            double re = (double)(dataA[j]*dataB[j] + dataA[j+1]*dataB[j+1]);
-            double im = (double)(dataA[j+1]*dataB[j] - dataA[j]*dataB[j+1]);
-            dataC[j] = (float)(re / denom);
-            dataC[j+1] = (float)(im / denom);
-        }
-    }
-    else
-    {
-        const double* dataA = (const double*)src1.data;
-        const double* dataB = (const double*)src2.data;
-        double* dataC = (double*)dst.data;
-        double eps = DBL_EPSILON; // prevent div0 problems
-
-        for(int j = 0; j < length - 1; j += 2)
-        {
-            double denom = dataB[j]*dataB[j] + dataB[j+1]*dataB[j+1] + eps;
-            double re = dataA[j]*dataB[j] + dataA[j+1]*dataB[j+1];
-            double im = dataA[j+1]*dataB[j] - dataA[j]*dataB[j+1];
-            dataC[j] = re / denom;
-            dataC[j+1] = im / denom;
-        }
-    }
-}
-
-void absComplex(InputArray _src, OutputArray _dst)
-{
-    Mat src = _src.getMat();
-
-    CV_Assert( src.type() == CV_32FC2 || src.type() == CV_64FC2 );
-
-    vector<Mat> planes;
-    split(src, planes);
-
-    magnitude(planes[0], planes[1], planes[0]);
-    planes[1] = Mat::zeros(planes[0].size(), planes[0].type());
-
-    merge(planes, _dst);
-}
-Point phaseCorrelate2(InputArray _src1, InputArray _src2)
-{
-
-    Mat FFT1, FFT2, P, Pm, C;
-
-    FFT1=_src1.getMat();
-    FFT2=_src2.getMat();
 
 
-    mulSpectrums(FFT1, FFT2, P, 0, true);
-
-
-    absComplex(P, Pm);
-     divComplex(P, Pm, C); // FF* / |FF*| (phase correlation equation completed here...)
-
-     idft(C, C); // gives us the nice peak shift location...
-
-     vector<Mat> Cplanes;
-     split(C, Cplanes);
-     C = Cplanes[0]; // use only the real plane since that's all that's left...
-
-     //fftShift(C); // shift the energy to the center of the frame.
-
-     // locate the highest peak
-     Point peakLoc;
-     minMaxLoc(C, NULL, NULL, NULL, &peakLoc);
-     if (peakLoc.x> FFT1.cols/2)
-         peakLoc.x -=FFT1.cols;
-     if (peakLoc.y> FFT1.rows/2)
-         peakLoc.y -=FFT1.rows;
-    // C.at<float>(peakLoc.y,peakLoc.x) = 0.0f;
-    // minMaxLoc(C, NULL, NULL, NULL, &peakLoc);
-     return peakLoc;
- }
 int main(int argc, char *argv[])
 {
     uint32_t preset = COMPRESSION_LEVEL | (COMPRESSION_EXTREME ? LZMA_PRESET_EXTREME : 0);
@@ -192,7 +88,7 @@ int main(int argc, char *argv[])
     lzma_action action;
     lzma_ret ret_xz;
     char press=-1;
-    float quality=0.4f; // number between 0 and 1, can't be 0
+    float quality=0.1f; // number between 0 and 1, can't be 0
 
     unsigned changes;
 
@@ -203,7 +99,7 @@ int main(int argc, char *argv[])
     namedWindow( "video_grey", CV_WINDOW_AUTOSIZE );
 
     VideoCapture capture;
-    capture.open( argv[1]);
+    capture.open( argv[1] );
     Mat frame;
 
     capture >> frame;
@@ -218,48 +114,67 @@ int main(int argc, char *argv[])
     unsigned total_size = total*3;
     float ftotal = total*1.0f;
 
+    unsigned blocks_h = height/BLOCK_SIZE;
+    unsigned blocks_w = width/BLOCK_SIZE;
+
+    bool mark[blocks_h][blocks_w];
+
     Mat m_image1(height, width, CV_8UC3);
     Mat m_image2(height, width, CV_8UC3);
     Mat m_output(height, width, CV_8UC3);
-    Mat m_output_grey(height,width, CV_8UC1);
-    Mat m_output_grey_f(height,width, CV_32FC1);
-    Mat m_fft1(height,width, CV_32FC2);
-    Mat m_fft2(height,width, CV_32FC2);
-    Mat m_cross_power(height,width, CV_32FC1);
-    Mat m_blurred(height,width, CV_8UC1);
-    Mat m_fft_op_re(height,width, CV_32FC1);
-    Mat m_fft_op_img(height,width, CV_32FC1);
-    Mat m_fft_op_p(height,width, CV_32FC2);
-    Mat m_fft_op_pm(height,width, CV_32FC2);
 
-    Mat m_fft_planes[]={m_fft_op_re,m_fft_op_img};
-    Mat m_fft_op_div(height,width, CV_32FC1);
+    Mat m_complexity_b(BLOCK_SIZE,BLOCK_SIZE,CV_8UC1);
+    Mat m_grey_b(BLOCK_SIZE,BLOCK_SIZE,CV_8UC1);
+    Mat m_output_greys_f1[blocks_h][blocks_w];
+    Mat m_output_greys_f2[blocks_h][blocks_w];
+
+    Mat m_tmp(height,width,CV_8UC4);
+
+    Mat m_output_greys[blocks_h][blocks_w];
+    Mat m_temp[blocks_h][blocks_w];
+
+    Mat m_translate[blocks_h][blocks_w];
+
+    for (unsigned i=0;i<blocks_h;i++) {
+        for (unsigned j=0;j<blocks_w;j++) {
+
+            m_translate[i][j].create(2,3,CV_32FC1);
+
+            m_output_greys[i][j].create(BLOCK_SIZE,BLOCK_SIZE,CV_8UC1);
+            m_output_greys_f1[i][j].create(BLOCK_SIZE,BLOCK_SIZE, CV_32FC1);
+            m_output_greys_f2[i][j].create(BLOCK_SIZE,BLOCK_SIZE, CV_32FC1);
+
+            m_temp[i][j].create(BLOCK_SIZE,BLOCK_SIZE,CV_8UC3);
+
+            m_translate[i][j].at<float>(0,0) = 1.0f;
+            m_translate[i][j].at<float>(0,1) = 0.0f;
+            m_translate[i][j].at<float>(1,0) = 0.0f;
+            m_translate[i][j].at<float>(1,1) = 1.0f;
+
+            m_translate[i][j].at<float>(0,2)=0.0f;
+            m_translate[i][j].at<float>(1,2)=0.0f;
+        }
+    }
+
+
+    Mat m_blurred(height,width, CV_8UC1);
 
     Mat m_changed1(height,width, CV_32SC1);
     Mat m_changed2(height,width, CV_32SC1);
 
-    Mat m_translate(2,3,CV_32FC1);
-    m_translate.at<float>(0,0) = 1;
-    m_translate.at<float>(0,1) = 0;
-    m_translate.at<float>(1,0) = 0;
-    m_translate.at<float>(1,1) = 1;
+    Mat *ffts,*prevffts,*greys_f,*prevgreys_f;
 
-m_translate.at<float>(0,2)=0;
-m_translate.at<float>(1,2)=0;
-
-
-    Mat *fft=&m_fft1;
-    Mat *prevfft=&m_fft2;
     Mat *image=NULL,*previmage=NULL, *blurred,*changed,*prevchanged;
-    Mat *output,*output_grey;
+    Mat *output;
 
     image=&m_image1;
     previmage=&m_image2;
     output=&m_output;
-    output_grey=&m_output_grey;
     blurred=&m_blurred;
     changed=&m_changed1;
     prevchanged=&m_changed2;
+    greys_f=&m_output_greys_f1[0][0];
+    prevgreys_f=&m_output_greys_f2[0][0];
 
     in_buf = (uint8_t *) m_output.data;
     out_buf = (uint8_t *) malloc(height*width*sizeof(uchar)*3);
@@ -269,8 +184,9 @@ m_translate.at<float>(1,2)=0;
             previmage->at<uchar>(i,j) = 0;
             blurred->at<uchar>(i,j)= 1;
             output->at<Vec3b>(i,j)=Vec3b(0,0,0);
-            prevfft->at<Vec2f>(i,j)=Vec2f(0.0f,0.0f);
-            fft->at<Vec2f>(i,j)=Vec2f(0.0f,0.0f);
+
+            //greys[ARR2D(blocks_w,i%blocks_h,j%blocks_w)].at<uchar>(i%BLOCK_SIZE,j%BLOCK_SIZE)=0;
+            m_output_greys_f2[i%blocks_h][j%blocks_w].at<float>(i%BLOCK_SIZE,j%BLOCK_SIZE)=0.0f;
             changed->at<int>(i,j)=0;
             prevchanged->at<int>(i,j)=0;
         }
@@ -282,7 +198,7 @@ m_translate.at<float>(1,2)=0;
         std::cerr <<"lzma_easy_encoder error: "<< ret_xz<<std::endl;
         return -1;
     }
-
+    uchar img_data[BLOCK_SIZE*BLOCK_SIZE*3];
     ipvc_file_header_t fh;
     ipvc_frame_header_t frh;
     fh.height = height;
@@ -291,130 +207,184 @@ m_translate.at<float>(1,2)=0;
     fwrite(&fh, 1,sizeof(ipvc_file_header_t),ipvc_file);
     std::cout<<"sd"<<endl;
 
-    cvtColor(frame,m_output_grey,CV_BGR2GRAY);
-    m_output_grey.convertTo(m_output_grey_f,CV_32FC1);
-    dft(m_output_grey_f, *prevfft,DFT_COMPLEX_OUTPUT);
+    for (unsigned i=0;i<blocks_h;i++){
+        for (unsigned j=0;j<blocks_w;j++) {
+            for (int a=0;a<BLOCK_SIZE;a++) {
+                for (int b=0;b<BLOCK_SIZE;b++) {
+                    m_temp[i][j].at<Vec3b>(a,b) = frame.at<Vec3b>(BLOCK_SIZE*i+a,BLOCK_SIZE*j+b);
+                }
+            }
+
+        }
+    }
 
     capture >> frame;
     float avg=0.0f;
+    frame.copyTo(m_output);
     while(!frame.empty() && press==-1) {
-        //uncomment this to see what a frame actually has
-       m_output = Mat::zeros(height, width, CV_8UC3);
-
-        cvtColor(frame,m_output_grey,CV_BGR2GRAY);
-        m_output_grey.convertTo(m_output_grey_f,CV_32FC1);
-        dft(m_output_grey_f, *fft,DFT_COMPLEX_OUTPUT);
-
-
-        Point pc=phaseCorrelate2(*prevfft,*fft);
-        m_translate.at<float>(0,2) += pc.x;
-        m_translate.at<float>(1,2) += pc.y;
-
-        warpAffine(frame,*image,m_translate,Size(width,height));
-
-        unsigned differences=0;
-        for (unsigned i=0;i<height;i++){
+        ipvc_frame_header_t frh;
+        fwrite(&frh, 1,sizeof(ipvc_frame_header_t),ipvc_file);
+        unsigned frame_differences=0;
+        // m_output = Mat::zeros(height, width, CV_8UC3);
+        for (unsigned i=0;i<height;i++) {
             for (unsigned j=0;j<width;j++) {
-                if (image->at<Vec3b>(i,j)!=previmage->at<Vec3b>(i,j))
-                    differences++;
-            }
-        }
-        int level=(total-differences)/(ftotal*quality);
 
-        changes=0;
-        for (unsigned i=0;i<height;i++){
-            for (unsigned j=0;j<width;j++) {
-                changed->at<int>(i,j)=0;
-                if (abs(AVG(image->at<Vec3b>(i,j)[0]-previmage->at<Vec3b>(i,j)[0],
-                            image->at<Vec3b>(i,j)[1]-previmage->at<Vec3b>(i,j)[1],
-                            image->at<Vec3b>(i,j)[2]-previmage->at<Vec3b>(i,j)[2]
-                            )) > level){
-                    output->at<Vec3b>(i,j)[0] = image->at<Vec3b>(i,j)[0];
-                    output->at<Vec3b>(i,j)[1] = image->at<Vec3b>(i,j)[1];
-                    output->at<Vec3b>(i,j)[2] = image->at<Vec3b>(i,j)[2];
-
-                    changed->at<int>(i,j)=1;
-                    changes++;
+                Vec3b is = frame.at<Vec3b>(i,j);
+                image->at<Vec3b>(i,j) = is;
+                Vec3b ps = previmage->at<Vec3b>(i,j);
+                if (abs(is[0]-ps[0]) > 0 &&
+                        abs(is[1]-ps[1]) > 0 &&
+                        abs(is[2]-ps[2]) > 0)
+                {
+                    frame_differences++;
                 }
             }
         }
-        avg=(avg+changes/ftotal)/2.0f;
-        cout<<avg<<" "<<level<<endl;
-        cvtColor(m_output,m_output_grey,CV_BGR2GRAY);
-        Canny(m_output_grey,m_output_grey,100,255);
-        for (unsigned i=1;i<height-1;i++){
-            for (unsigned j=1;j<width-1;j++) {
-                if (prevchanged->at<int>(i,j)==1 &&
-                        m_output_grey.at<uchar>(i-1,j-1) +
-                        m_output_grey.at<uchar>(i+1,j-1) +
-                        m_output_grey.at<uchar>(i+1,j+1) +
-                        m_output_grey.at<uchar>(i-1,j+1) +
-                        m_output_grey.at<uchar>(i,j)
+        float p_diff = frame_differences*1.0f/(width*height);
+        if (p_diff>0.8f) {
+            // full frame
+            ipvc_frame_full_header_t frh;
+            fwrite(&frh, 1,sizeof(ipvc_frame_full_header_t),ipvc_file);
+            char data[width*height*3];
+            fwrite(&data, 1,width*height*3,ipvc_file);
+            image->copyTo(m_output);
+            image->copyTo(*previmage);
+            cout<<"full"<<endl;
+        }
+        for (unsigned i=0;i<blocks_h;i++){
+            for (unsigned j=0;j<blocks_w;j++) {
+                for (int a=0;a<BLOCK_SIZE;a++) {
+                    for (int b=0;b<BLOCK_SIZE;b++) {
+                        Vec3b p= frame.at<Vec3b>(i*BLOCK_SIZE+a,j*BLOCK_SIZE+b);
+                        image->at<Vec3b>(i*BLOCK_SIZE+a,j*BLOCK_SIZE+b) = p;
+                        m_temp[i][j].at<Vec3b>(a,b)=previmage->at<Vec3b>(i*BLOCK_SIZE+a,j*BLOCK_SIZE+b);
+                        float tmp = (p[0]+p[1]+p[2])/3.0;
+                        greys_f[ARR2D(blocks_w,i,j)].at<float>(a,b) = tmp;
+                        m_grey_b.at<uchar>(a,b) = (uchar) tmp;
+                    }
+                }
+
+                Point2d pc=phaseCorrelate(prevgreys_f[ARR2D(blocks_w,i,j)],greys_f[ARR2D(blocks_w,i,j)]);
+
+                unsigned correct=0;
+                unsigned complexity=0;
+                bool edge=false;
+                mark[i][j] = false;
+                Canny(m_grey_b,m_complexity_b,100,250);
+                if (fabs(pc.x)+ fabs(pc.y)>0.0){
+                    for (int a=0;a<BLOCK_SIZE;a++){
+                        for (int b=0;b<BLOCK_SIZE;b++){
+                            int h=BLOCK_SIZE*i+a+pc.x;
+                            int w=BLOCK_SIZE*j+b+pc.y;
+                            if (h<0||h>=height||w<0||w>=width)
+                                edge=true;
+                            else{
+                                if (abs(previmage->at<Vec3b>(h,w)[0]-image->at<Vec3b>(h,w)[0]) < 5 &&
+                                    abs(previmage->at<Vec3b>(h,w)[1]-image->at<Vec3b>(h,w)[1]) < 5 &&
+                                    abs(previmage->at<Vec3b>(h,w)[2]-image->at<Vec3b>(h,w)[2]) < 5){
+                                    correct++;
+                                }
+                            }
+                            if (m_complexity_b.at<uchar>(a,b)>0){
+                                complexity++;
+                            }
+                        }
+                    }
+
+                    if (complexity > BLOCK_SIZE*BLOCK_SIZE*0.08 && correct>BLOCK_SIZE*BLOCK_SIZE*0.6 && !edge){
+
+                        for (int a=0;a<BLOCK_SIZE;a++){
+                            for (int b=0;b<BLOCK_SIZE;b++){
+
+                                    int h=BLOCK_SIZE*i+a;
+                                    int w=BLOCK_SIZE*j+b;
+
+                                    m_temp[i][j].at<Vec3b>(a,b) = output->at<Vec3b>(h,w);
 
 
+                            }
+                        }
 
-                        >0
-                        ) {
-                    Vec3b g(0,0,0);
-                    for (int mi=0;mi<3;mi++) {
-                        for (int mj=0;mj<3;mj++) {
-                            g += output->at<Vec3b>(i+mask[mi],j+mask[mj])*(blurmask3[mj][mi]/16.0 );
+                        for (int a=0;a<BLOCK_SIZE;a++){
+                            for (int b=0;b<BLOCK_SIZE;b++){
+
+                                int h=BLOCK_SIZE*i+a;
+                                int w=BLOCK_SIZE*j+b;
+                                output->at<Vec3b>(h-(int)pc.y,w-(int)pc.x) = m_temp[i][j].at<Vec3b>(a,b);//.mul(Vec3b(1,0,1));
+
+
+                            }
+                        }
+
+                        mark[i][j]=true;
+                        ipvc_block_move_t block;
+                        fwrite(&block, 1,sizeof(ipvc_block_move_t),ipvc_file);
+
+                    } else if  (complexity < BLOCK_SIZE*BLOCK_SIZE*0.001  && correct > BLOCK_SIZE*BLOCK_SIZE*0.8 && !edge) {
+                        mark[i][j]=true;
+                    }
+
+                }
+
+                unsigned differences=0;
+                //cout<<mark[i][j]<<endl;
+                if (!mark[i][j]){
+                    for (int a=0;a<BLOCK_SIZE;a++) {
+                        for (int b=0;b<BLOCK_SIZE;b++) {
+                            Vec3b p= image->at<Vec3b>(i*BLOCK_SIZE+a,j*BLOCK_SIZE+b);
+                            Vec3b d= previmage->at<Vec3b>(i*BLOCK_SIZE+a,j*BLOCK_SIZE+b);
+                            if ((abs(p[0]-d[0]) > 0) &&
+                                (abs(p[1]-d[1]) > 0) &&
+                                (abs(p[2]-d[2]) > 0) ) {
+                                differences++;
+
+                            }
 
                         }
                     }
-                    output->at<Vec3b>(i,j) = g;
-                    prevchanged->at<int>(i,j)=0;
+                    if (differences > 0) {
+                        for (int a=0;a<BLOCK_SIZE;a++) {
+                            for (int b=0;b<BLOCK_SIZE;b++) {
+                                output->at<Vec3b>(i*BLOCK_SIZE+a,j*BLOCK_SIZE+b) = image->at<Vec3b>(i*BLOCK_SIZE+a,j*BLOCK_SIZE+b);//.mul(Vec3b(0,1,1));
+                            }
+                        }
+                        ipvc_block_t block;
+                        fwrite(&block, 1,sizeof(ipvc_block_t),ipvc_file);
+                    }
+
                 }
 
             }
         }
 
-      //  cout<<1.0f-changes*1.0f/total<<" compressed"<<endl;
-      // / imshow("video_ori", frame);
-       // imshow("video_out", m_output);
-       // imshow("video_grey", m_output_grey);
+
+
+        imshow("video_ori", frame);
+        imshow("video_out", m_output);
+
         press= waitKey(1);
-
-        strm.next_in = in_buf;
-        strm.avail_in = total_size;
-        strm.next_out = out_buf;
-        strm.avail_out = total_size;
-
-        /* compress data */
-        ret_xz = lzma_code (&strm, LZMA_SYNC_FLUSH);
-        if ((ret_xz != LZMA_OK) && (ret_xz != LZMA_STREAM_END)) {
-            std::cerr<<"compression error"<<std::endl;
-        } else {
-
-            out_len = total_size - strm.avail_out;
-            frh.length = out_len;
-            fwrite(&frh,1,sizeof(ipvc_frame_header_t),ipvc_file);
-            fwrite(out_buf,1,out_len,ipvc_file);
-            std::cout<<out_len*1.0/total_size<<std::endl;
-        }
 
         capture>>frame;
         if (image==&m_image1){
             image=&m_image2;
             previmage=&m_image1;
-            fft=&m_fft2;
-            prevfft=&m_fft1;
+            greys_f=&m_output_greys_f2[0][0];
+            prevgreys_f=&m_output_greys_f1[0][0];
             changed=&m_changed2;
             prevchanged=&m_changed1;
         } else {
             image=&m_image1;
             previmage=&m_image2;
-            fft=&m_fft1;
-            prevfft=&m_fft2;
+            greys_f=&m_output_greys_f1[0][0];
+            prevgreys_f=&m_output_greys_f2[0][0];
             changed=&m_changed1;
             prevchanged=&m_changed2;
         }
-
-
     }
     cout<<total_size<<endl;
     fclose(ipvc_file);
     lzma_end (&strm);
+
     return 0;
 }
 
