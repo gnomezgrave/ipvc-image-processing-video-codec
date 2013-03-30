@@ -9,7 +9,7 @@
 #include <cstdio>
 #include <cmath>
 #include <stdint.h>
-#include <lzma.h>
+//#include <lzma.h>
 #include <opencv2/core/core.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
 #include <opencv2/highgui/highgui.hpp>
@@ -22,6 +22,7 @@
 
 #define AVG(a,b,c) (((a)+(b)+(c))/3.0)
 
+enum ipvc_modified_by_t{IPVC_DIFF, IPVC_PC, IPVC_STATIC};
 /* COMPRESSION SETTINGS */
 
 /* analogous to xz CLI options: -0 to -9 */
@@ -76,17 +77,17 @@ int blurmask3[3][3] = { { 1, 2, 1 } ,
 
 int main(int argc, char *argv[])
 {
-    uint32_t preset = COMPRESSION_LEVEL | (COMPRESSION_EXTREME ? LZMA_PRESET_EXTREME : 0);
+    /*uint32_t preset = COMPRESSION_LEVEL | (COMPRESSION_EXTREME ? LZMA_PRESET_EXTREME : 0);
     lzma_check check = INTEGRITY_CHECK;
-    lzma_stream strm = LZMA_STREAM_INIT; /* alloc and init lzma_stream struct */
+    lzma_stream strm = LZMA_STREAM_INIT;
     uint8_t *in_buf;
     uint8_t *out_buf;
-    size_t in_len;	/* length of useful data in in_buf */
-    size_t out_len;	/* length of useful data in out_buf */
+    size_t in_len;
+    size_t out_len;
     bool in_finished = false;
     bool out_finished = false;
     lzma_action action;
-    lzma_ret ret_xz;
+    lzma_ret ret_xz;*/
     char press=-1;
     float quality=0.1f; // number between 0 and 1, can't be 0
 
@@ -118,6 +119,7 @@ int main(int argc, char *argv[])
     unsigned blocks_w = width/BLOCK_SIZE;
 
     bool mark[blocks_h][blocks_w];
+    ipvc_modified_by_t modd[blocks_h][blocks_w];
 
     Mat m_image1(height, width, CV_8UC3);
     Mat m_image2(height, width, CV_8UC3);
@@ -176,8 +178,8 @@ int main(int argc, char *argv[])
     greys_f=&m_output_greys_f1[0][0];
     prevgreys_f=&m_output_greys_f2[0][0];
 
-    in_buf = (uint8_t *) m_output.data;
-    out_buf = (uint8_t *) malloc(height*width*sizeof(uchar)*3);
+    //in_buf = (uint8_t *) m_output.data;
+   // out_buf = (uint8_t *) malloc(height*width*sizeof(uchar)*3);
 
     for (unsigned i=0;i<height;i++){
         for (unsigned j=0;j<width;j++) {
@@ -193,11 +195,13 @@ int main(int argc, char *argv[])
     }
 
     /* initialize xz encoder */
+    /*
     ret_xz = lzma_easy_encoder (&strm, preset, check);
     if (ret_xz != LZMA_OK) {
         std::cerr <<"lzma_easy_encoder error: "<< ret_xz<<std::endl;
         return -1;
     }
+    */
     uchar img_data[BLOCK_SIZE*BLOCK_SIZE*3];
     ipvc_file_header_t fh;
     ipvc_frame_header_t frh;
@@ -291,7 +295,7 @@ int main(int argc, char *argv[])
                         }
                     }
 
-                    if (complexity > BLOCK_SIZE*BLOCK_SIZE*0.08 && correct>BLOCK_SIZE*BLOCK_SIZE*0.6 && !edge){
+                    if (complexity > BLOCK_SIZE*BLOCK_SIZE*0.04 && correct>BLOCK_SIZE*BLOCK_SIZE*0.6 && !edge){
 
                         for (int a=0;a<BLOCK_SIZE;a++){
                             for (int b=0;b<BLOCK_SIZE;b++){
@@ -317,11 +321,13 @@ int main(int argc, char *argv[])
                         }
 
                         mark[i][j]=true;
+                        modd[i][j]=IPVC_PC;
                         ipvc_block_move_t block;
                         fwrite(&block, 1,sizeof(ipvc_block_move_t),ipvc_file);
 
                     } else if  (complexity < BLOCK_SIZE*BLOCK_SIZE*0.001  && correct > BLOCK_SIZE*BLOCK_SIZE*0.8 && !edge) {
                         mark[i][j]=true;
+                        modd[i][j]=IPVC_STATIC;
                     }
 
                 }
@@ -348,12 +354,39 @@ int main(int argc, char *argv[])
                                 output->at<Vec3b>(i*BLOCK_SIZE+a,j*BLOCK_SIZE+b) = image->at<Vec3b>(i*BLOCK_SIZE+a,j*BLOCK_SIZE+b);//.mul(Vec3b(0,1,1));
                             }
                         }
+                        modd[i][j]=IPVC_DIFF;
                         ipvc_block_t block;
                         fwrite(&block, 1,sizeof(ipvc_block_t),ipvc_file);
                     }
 
                 }
-
+/*
+                if (modd[i][j]==IPVC_DIFF){
+                    for (int a=0;a<BLOCK_SIZE;a++) {
+                        for (int b=0;b<BLOCK_SIZE;b++) {
+                            output->at<Vec3b>(i*BLOCK_SIZE+a,j*BLOCK_SIZE+b) = output->at<Vec3b>(i*BLOCK_SIZE+a,j*BLOCK_SIZE+b).mul(Vec3b(1,0,1));
+                        }
+                    }
+                } else if (modd[i][j]==IPVC_DIFF){
+                    for (int a=0;a<BLOCK_SIZE;a++) {
+                        for (int b=0;b<BLOCK_SIZE;b++) {
+                            output->at<Vec3b>(i*BLOCK_SIZE+a,j*BLOCK_SIZE+b) = output->at<Vec3b>(i*BLOCK_SIZE+a,j*BLOCK_SIZE+b).mul(Vec3b(1,0,0));
+                        }
+                    }
+                } else if (modd[i][j]==IPVC_DIFF){
+                    for (int a=0;a<BLOCK_SIZE;a++) {
+                        for (int b=0;b<BLOCK_SIZE;b++) {
+                            output->at<Vec3b>(i*BLOCK_SIZE+a,j*BLOCK_SIZE+b) = output->at<Vec3b>(i*BLOCK_SIZE+a,j*BLOCK_SIZE+b).mul(Vec3b(0,0,1));
+                        }
+                    }
+                } else {
+                    for (int a=0;a<BLOCK_SIZE;a++) {
+                        for (int b=0;b<BLOCK_SIZE;b++) {
+                            output->at<Vec3b>(i*BLOCK_SIZE+a,j*BLOCK_SIZE+b) = output->at<Vec3b>(i*BLOCK_SIZE+a,j*BLOCK_SIZE+b).mul(Vec3b(0,1,1));
+                        }
+                    }
+                }
+*/
             }
         }
 
@@ -383,7 +416,7 @@ int main(int argc, char *argv[])
     }
     cout<<total_size<<endl;
     fclose(ipvc_file);
-    lzma_end (&strm);
+    //lzma_end (&strm);
 
     return 0;
 }
