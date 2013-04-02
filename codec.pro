@@ -3,7 +3,8 @@ CONFIG += console
 CONFIG -= app_bundle
 CONFIG -= qt
 
-SOURCES += main.cpp
+SOURCES += main.cpp \
+    phasecorr.cpp
 
 QMAKE_CXXFLAGS += -O3
 win32{
@@ -12,3 +13,6 @@ win32{
 } else {
     LIBS += -lopencv_core -lopencv_highgui -lopencv_imgproc # -llzma
 }
+
+HEADERS += \
+    ipvc.h

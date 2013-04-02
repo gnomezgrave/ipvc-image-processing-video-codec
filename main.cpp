@@ -10,12 +10,11 @@
 #include <cmath>
 #include <stdint.h>
 //#include <lzma.h>
-#include <opencv2/core/core.hpp>
-#include <opencv2/imgproc/imgproc.hpp>
+#include "ipvc.h"
 #include <opencv2/highgui/highgui.hpp>
-#define BLOCK_SIZE 20
 
-#define OUT_FILE "/home/madura/out.ipv"
+
+#define OUT_FILE argv[2]
 
 #define PIXEL(jump, bigj, smallj) (((jump)*(bigj) + (smallj))*3)
 #define ARR2D(jump, bigj, smallj) (((jump)*(bigj) + (smallj)))
@@ -38,31 +37,6 @@ enum ipvc_modified_by_t{IPVC_DIFF, IPVC_PC, IPVC_STATIC};
 #define IN_BUF_MAX	4096
 #define OUT_BUF_MAX	4096
 
-struct ipvc_file_header_t{
-    unsigned height;
-    unsigned width;
-};
-
-struct ipvc_frame_full_header_t {
-    uchar frame_type=126; // 126: full frame
-};
-
-struct ipvc_frame_header_t{
-    uchar frame_type=122; // 122: blocks
-    ushort blocks;
-    ushort block_moves;
-};
-
-struct ipvc_block_t{
-    uchar data[BLOCK_SIZE*BLOCK_SIZE*3];
-};
-
-struct ipvc_block_move_t{
-    ushort block_id;
-    float move_h;
-    float move_w;
-};
-
 using namespace cv;
 using namespace std;
 
@@ -72,8 +46,6 @@ int blurmask3[3][3] = { { 1, 2, 1 } ,
                         { 2, 4, 2 } ,
                         { 1, 2, 1 }
                       };
-
-
 
 int main(int argc, char *argv[])
 {
@@ -92,6 +64,7 @@ int main(int argc, char *argv[])
     float quality=0.1f; // number between 0 and 1, can't be 0
 
     unsigned changes;
+    unsigned current_frame=0;
 
     FILE *ipvc_file = fopen(OUT_FILE, "w");
 
@@ -159,10 +132,6 @@ int main(int argc, char *argv[])
     }
 
 
-    Mat m_blurred(height,width, CV_8UC1);
-
-    Mat m_changed1(height,width, CV_32SC1);
-    Mat m_changed2(height,width, CV_32SC1);
 
     Mat *ffts,*prevffts,*greys_f,*prevgreys_f;
 
@@ -172,9 +141,7 @@ int main(int argc, char *argv[])
     image=&m_image1;
     previmage=&m_image2;
     output=&m_output;
-    blurred=&m_blurred;
-    changed=&m_changed1;
-    prevchanged=&m_changed2;
+
     greys_f=&m_output_greys_f1[0][0];
     prevgreys_f=&m_output_greys_f2[0][0];
 
@@ -183,14 +150,14 @@ int main(int argc, char *argv[])
 
     for (unsigned i=0;i<height;i++){
         for (unsigned j=0;j<width;j++) {
-            previmage->at<uchar>(i,j) = 0;
-            blurred->at<uchar>(i,j)= 1;
+            image->at<Vec3b>(i,j) = Vec3b(0,0,0);
+            previmage->at<Vec3b>(i,j) = Vec3b(0,0,0);
+
             output->at<Vec3b>(i,j)=Vec3b(0,0,0);
 
-            //greys[ARR2D(blocks_w,i%blocks_h,j%blocks_w)].at<uchar>(i%BLOCK_SIZE,j%BLOCK_SIZE)=0;
+            m_output_greys_f1[i%blocks_h][j%blocks_w].at<float>(i%BLOCK_SIZE,j%BLOCK_SIZE)=0.0f;
             m_output_greys_f2[i%blocks_h][j%blocks_w].at<float>(i%BLOCK_SIZE,j%BLOCK_SIZE)=0.0f;
-            changed->at<int>(i,j)=0;
-            prevchanged->at<int>(i,j)=0;
+
         }
     }
 
@@ -202,7 +169,6 @@ int main(int argc, char *argv[])
         return -1;
     }
     */
-    uchar img_data[BLOCK_SIZE*BLOCK_SIZE*3];
     ipvc_file_header_t fh;
     ipvc_frame_header_t frh;
     fh.height = height;
@@ -225,20 +191,20 @@ int main(int argc, char *argv[])
     capture >> frame;
     float avg=0.0f;
     frame.copyTo(m_output);
+    current_frame=2;
     while(!frame.empty() && press==-1) {
-        ipvc_frame_header_t frh;
-        fwrite(&frh, 1,sizeof(ipvc_frame_header_t),ipvc_file);
+
         unsigned frame_differences=0;
-        // m_output = Mat::zeros(height, width, CV_8UC3);
+       // m_output = Mat::zeros(height, width, CV_8UC3);
         for (unsigned i=0;i<height;i++) {
             for (unsigned j=0;j<width;j++) {
 
                 Vec3b is = frame.at<Vec3b>(i,j);
                 image->at<Vec3b>(i,j) = is;
                 Vec3b ps = previmage->at<Vec3b>(i,j);
-                if (abs(is[0]-ps[0]) > 0 &&
-                        abs(is[1]-ps[1]) > 0 &&
-                        abs(is[2]-ps[2]) > 0)
+                if (abs(is[0]-ps[0]) > 5 &&
+                        abs(is[1]-ps[1]) > 5 &&
+                        abs(is[2]-ps[2]) > 5)
                 {
                     frame_differences++;
                 }
@@ -257,6 +223,8 @@ int main(int argc, char *argv[])
         }
         for (unsigned i=0;i<blocks_h;i++){
             for (unsigned j=0;j<blocks_w;j++) {
+                bool changed=false;
+
                 for (int a=0;a<BLOCK_SIZE;a++) {
                     for (int b=0;b<BLOCK_SIZE;b++) {
                         Vec3b p= frame.at<Vec3b>(i*BLOCK_SIZE+a,j*BLOCK_SIZE+b);
@@ -268,24 +236,26 @@ int main(int argc, char *argv[])
                     }
                 }
 
-                Point2d pc=phaseCorrelate(prevgreys_f[ARR2D(blocks_w,i,j)],greys_f[ARR2D(blocks_w,i,j)]);
+                Point2d pc(0,0);
+                double d;
+                pc=phaseCorrelate(prevgreys_f[ARR2D(blocks_w,i,j)],greys_f[ARR2D(blocks_w,i,j)]);
 
                 unsigned correct=0;
                 unsigned complexity=0;
                 bool edge=false;
                 mark[i][j] = false;
                 Canny(m_grey_b,m_complexity_b,100,250);
-                if (fabs(pc.x)+ fabs(pc.y)>0.0){
+                if (fabs(pc.x)+ fabs(pc.y)<5.0f){
                     for (int a=0;a<BLOCK_SIZE;a++){
                         for (int b=0;b<BLOCK_SIZE;b++){
-                            int h=BLOCK_SIZE*i+a+pc.x;
-                            int w=BLOCK_SIZE*j+b+pc.y;
+                            int h=BLOCK_SIZE*i+a+(int)pc.x;
+                            int w=BLOCK_SIZE*j+b+(int)pc.y;
                             if (h<0||h>=height||w<0||w>=width)
                                 edge=true;
                             else{
-                                if (abs(previmage->at<Vec3b>(h,w)[0]-image->at<Vec3b>(h,w)[0]) < 5 &&
-                                    abs(previmage->at<Vec3b>(h,w)[1]-image->at<Vec3b>(h,w)[1]) < 5 &&
-                                    abs(previmage->at<Vec3b>(h,w)[2]-image->at<Vec3b>(h,w)[2]) < 5){
+                                if (abs(previmage->at<Vec3b>(h,w)[0]-image->at<Vec3b>(h,w)[0]) < 4 &&
+                                    abs(previmage->at<Vec3b>(h,w)[1]-image->at<Vec3b>(h,w)[1]) < 4 &&
+                                    abs(previmage->at<Vec3b>(h,w)[2]-image->at<Vec3b>(h,w)[2]) < 4){
                                     correct++;
                                 }
                             }
@@ -295,16 +265,13 @@ int main(int argc, char *argv[])
                         }
                     }
 
-                    if (complexity > BLOCK_SIZE*BLOCK_SIZE*0.04 && correct>BLOCK_SIZE*BLOCK_SIZE*0.6 && !edge){
+                    if (complexity > BLOCK_SIZE*BLOCK_SIZE*0.01 && correct>BLOCK_SIZE*BLOCK_SIZE*0.8 && !edge){
 
-                        for (int a=0;a<BLOCK_SIZE;a++){
+                         for (int a=0;a<BLOCK_SIZE;a++){
                             for (int b=0;b<BLOCK_SIZE;b++){
-
-                                    int h=BLOCK_SIZE*i+a;
-                                    int w=BLOCK_SIZE*j+b;
-
-                                    m_temp[i][j].at<Vec3b>(a,b) = output->at<Vec3b>(h,w);
-
+                                int h=BLOCK_SIZE*i+a;
+                                int w=BLOCK_SIZE*j+b;
+                                m_temp[i][j].at<Vec3b>(a,b) = output->at<Vec3b>(h,w);
 
                             }
                         }
@@ -314,18 +281,22 @@ int main(int argc, char *argv[])
 
                                 int h=BLOCK_SIZE*i+a;
                                 int w=BLOCK_SIZE*j+b;
-                                output->at<Vec3b>(h-(int)pc.y,w-(int)pc.x) = m_temp[i][j].at<Vec3b>(a,b);//.mul(Vec3b(1,0,1));
+                                int hh=h+((int)pc.y);
+                                int ww=w+((int)pc.x);
+                                if (hh>=0 && ww>=0 && hh<height && ww<width)
+                                    output->at<Vec3b>(hh,ww) = m_temp[i][j].at<Vec3b>(a,b);//.mul(Vec3b(1,0,1));
 
 
                             }
                         }
 
                         mark[i][j]=true;
+                        changed=true;
                         modd[i][j]=IPVC_PC;
                         ipvc_block_move_t block;
                         fwrite(&block, 1,sizeof(ipvc_block_move_t),ipvc_file);
 
-                    } else if  (complexity < BLOCK_SIZE*BLOCK_SIZE*0.001  && correct > BLOCK_SIZE*BLOCK_SIZE*0.8 && !edge) {
+                    } else if  (correct > BLOCK_SIZE*BLOCK_SIZE*0.8 && !edge) {
                         mark[i][j]=true;
                         modd[i][j]=IPVC_STATIC;
                     }
@@ -339,9 +310,9 @@ int main(int argc, char *argv[])
                         for (int b=0;b<BLOCK_SIZE;b++) {
                             Vec3b p= image->at<Vec3b>(i*BLOCK_SIZE+a,j*BLOCK_SIZE+b);
                             Vec3b d= previmage->at<Vec3b>(i*BLOCK_SIZE+a,j*BLOCK_SIZE+b);
-                            if ((abs(p[0]-d[0]) > 0) &&
-                                (abs(p[1]-d[1]) > 0) &&
-                                (abs(p[2]-d[2]) > 0) ) {
+                            if ((abs(p[0]-d[0]) > 5) &&
+                                (abs(p[1]-d[1]) > 5) &&
+                                (abs(p[2]-d[2]) > 5) ) {
                                 differences++;
 
                             }
@@ -354,39 +325,38 @@ int main(int argc, char *argv[])
                                 output->at<Vec3b>(i*BLOCK_SIZE+a,j*BLOCK_SIZE+b) = image->at<Vec3b>(i*BLOCK_SIZE+a,j*BLOCK_SIZE+b);//.mul(Vec3b(0,1,1));
                             }
                         }
+                        changed=true;
                         modd[i][j]=IPVC_DIFF;
                         ipvc_block_t block;
                         fwrite(&block, 1,sizeof(ipvc_block_t),ipvc_file);
                     }
 
                 }
-/*
-                if (modd[i][j]==IPVC_DIFF){
-                    for (int a=0;a<BLOCK_SIZE;a++) {
-                        for (int b=0;b<BLOCK_SIZE;b++) {
-                            output->at<Vec3b>(i*BLOCK_SIZE+a,j*BLOCK_SIZE+b) = output->at<Vec3b>(i*BLOCK_SIZE+a,j*BLOCK_SIZE+b).mul(Vec3b(1,0,1));
+
+                if (changed && 0) {
+                    if (modd[i][j]==IPVC_DIFF){ //purple
+                        for (int a=0;a<BLOCK_SIZE;a++) {
+                            for (int b=0;b<BLOCK_SIZE;b++) {
+                                output->at<Vec3b>(i*BLOCK_SIZE+a,j*BLOCK_SIZE+b) = output->at<Vec3b>(i*BLOCK_SIZE+a,j*BLOCK_SIZE+b).mul(Vec3b(1,0,1));
+                            }
+                        }
+                    } else if (modd[i][j]==IPVC_PC){ //blue
+                        for (int a=0;a<BLOCK_SIZE;a++) {
+                            for (int b=0;b<BLOCK_SIZE;b++) {
+                                output->at<Vec3b>(i*BLOCK_SIZE+a,j*BLOCK_SIZE+b) = output->at<Vec3b>(i*BLOCK_SIZE+a,j*BLOCK_SIZE+b).mul(Vec3b(1,0,0));
+                            }
+                        }
+
+                    } else {
+                        for (int a=0;a<BLOCK_SIZE;a++) { //yellow
+                            for (int b=0;b<BLOCK_SIZE;b++) {
+                                output->at<Vec3b>(i*BLOCK_SIZE+a,j*BLOCK_SIZE+b) = output->at<Vec3b>(i*BLOCK_SIZE+a,j*BLOCK_SIZE+b).mul(Vec3b(0,1,1));
+                            }
                         }
                     }
-                } else if (modd[i][j]==IPVC_DIFF){
-                    for (int a=0;a<BLOCK_SIZE;a++) {
-                        for (int b=0;b<BLOCK_SIZE;b++) {
-                            output->at<Vec3b>(i*BLOCK_SIZE+a,j*BLOCK_SIZE+b) = output->at<Vec3b>(i*BLOCK_SIZE+a,j*BLOCK_SIZE+b).mul(Vec3b(1,0,0));
-                        }
-                    }
-                } else if (modd[i][j]==IPVC_DIFF){
-                    for (int a=0;a<BLOCK_SIZE;a++) {
-                        for (int b=0;b<BLOCK_SIZE;b++) {
-                            output->at<Vec3b>(i*BLOCK_SIZE+a,j*BLOCK_SIZE+b) = output->at<Vec3b>(i*BLOCK_SIZE+a,j*BLOCK_SIZE+b).mul(Vec3b(0,0,1));
-                        }
-                    }
-                } else {
-                    for (int a=0;a<BLOCK_SIZE;a++) {
-                        for (int b=0;b<BLOCK_SIZE;b++) {
-                            output->at<Vec3b>(i*BLOCK_SIZE+a,j*BLOCK_SIZE+b) = output->at<Vec3b>(i*BLOCK_SIZE+a,j*BLOCK_SIZE+b).mul(Vec3b(0,1,1));
-                        }
-                    }
+
                 }
-*/
+
             }
         }
 
@@ -398,20 +368,18 @@ int main(int argc, char *argv[])
         press= waitKey(1);
 
         capture>>frame;
+        current_frame++;
         if (image==&m_image1){
             image=&m_image2;
             previmage=&m_image1;
             greys_f=&m_output_greys_f2[0][0];
             prevgreys_f=&m_output_greys_f1[0][0];
-            changed=&m_changed2;
-            prevchanged=&m_changed1;
+
         } else {
             image=&m_image1;
             previmage=&m_image2;
             greys_f=&m_output_greys_f1[0][0];
             prevgreys_f=&m_output_greys_f2[0][0];
-            changed=&m_changed1;
-            prevchanged=&m_changed2;
         }
     }
     cout<<total_size<<endl;
