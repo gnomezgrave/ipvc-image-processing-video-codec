@@ -517,7 +517,7 @@ cv::Point2d phaseCorrelateX(InputArray _src1, InputArray _src2, double* response
     fftShift(C); // shift the energy to the center of the frame.
 
     // locate the highest peak
-    Point peakLoc;
+    Point peakLoc(0,0);
     minMaxLoc(C, NULL, NULL, NULL, &peakLoc);
 
     // get the phase shift with sub-pixel accuracy, 5x5 window seems about right here...

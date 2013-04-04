@@ -11,6 +11,8 @@ cv::Point2d phaseCorrelateX(cv::InputArray _src1, cv::InputArray _src2, double* 
 struct ipvc_file_header_t{
     unsigned height;
     unsigned width;
+    unsigned short block_size;
+    unsigned char rate;
 };
 
 struct ipvc_frame_full_header_t {
@@ -26,6 +28,7 @@ struct ipvc_frame_header_t{
 };
 
 struct ipvc_block_t{
+    ushort block_id;
     uchar data[BLOCK_SIZE*BLOCK_SIZE*3];
 };
 
