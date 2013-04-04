@@ -79,7 +79,9 @@ int main(int argc, char *argv[])
 
     namedWindow( "video_ori", CV_WINDOW_AUTOSIZE );
     namedWindow( "video_out", CV_WINDOW_AUTOSIZE );
-    namedWindow( "video_grey", CV_WINDOW_AUTOSIZE );
+   // namedWindow( "video_grey", CV_WINDOW_AUTOSIZE );
+    namedWindow( "video_overlay", CV_WINDOW_AUTOSIZE );
+
 
     VideoCapture capture;
     capture.open( argv[1] );
@@ -114,6 +116,8 @@ int main(int argc, char *argv[])
     Mat m_image1(height, width, CV_8UC3);
     Mat m_image2(height, width, CV_8UC3);
     Mat m_output(height, width, CV_8UC3);
+    Mat m_output_overlay(height, width, CV_8UC3);
+    Mat m_final(height, width, CV_8UC3);
 
     Mat m_complexity_b(BLOCK_SIZE,BLOCK_SIZE,CV_8UC1);
     Mat m_grey_b(BLOCK_SIZE,BLOCK_SIZE,CV_8UC1);
@@ -210,6 +214,7 @@ int main(int argc, char *argv[])
 
         unsigned frame_differences=0;
         //m_output = Mat::zeros(height, width, CV_8UC3);
+        m_output_overlay = Mat::zeros(height, width, CV_8UC3);
         for (unsigned i=0;i<height;i++) {
             for (unsigned j=0;j<width;j++) {
 
@@ -365,24 +370,24 @@ int main(int argc, char *argv[])
 
                 }
 
-                if (changed && 0) {
+                if (changed && 1) {
                     if (modd[i][j]==IPVC_DIFF){ //purple
                         for (int a=0;a<BLOCK_SIZE;a++) {
                             for (int b=0;b<BLOCK_SIZE;b++) {
-                                output->at<Vec3b>(i*BLOCK_SIZE+a,j*BLOCK_SIZE+b) = output->at<Vec3b>(i*BLOCK_SIZE+a,j*BLOCK_SIZE+b).mul(Vec3b(1,0,1));
+                                m_output_overlay.at<Vec3b>(i*BLOCK_SIZE+a,j*BLOCK_SIZE+b) = Vec3b(150,0,156);
                             }
                         }
                     } else if (modd[i][j]==IPVC_PC){ //blue
                         for (int a=0;a<BLOCK_SIZE;a++) {
                             for (int b=0;b<BLOCK_SIZE;b++) {
-                                output->at<Vec3b>(i*BLOCK_SIZE+a,j*BLOCK_SIZE+b) = output->at<Vec3b>(i*BLOCK_SIZE+a,j*BLOCK_SIZE+b).mul(Vec3b(1,0,0));
+                                m_output_overlay.at<Vec3b>(i*BLOCK_SIZE+a,j*BLOCK_SIZE+b) = Vec3b(250,0,0);
                             }
                         }
 
                     } else {
                         for (int a=0;a<BLOCK_SIZE;a++) { //yellow
                             for (int b=0;b<BLOCK_SIZE;b++) {
-                                output->at<Vec3b>(i*BLOCK_SIZE+a,j*BLOCK_SIZE+b) = output->at<Vec3b>(i*BLOCK_SIZE+a,j*BLOCK_SIZE+b).mul(Vec3b(0,1,1));
+                                m_output_overlay.at<Vec3b>(i*BLOCK_SIZE+a,j*BLOCK_SIZE+b) = Vec3b(0,255,250);
                             }
                         }
                     }
@@ -413,10 +418,12 @@ int main(int argc, char *argv[])
             l_blocks.clear();
             l_block_moves.clear();
         }
+        addWeighted( m_output, 1.0, m_output_overlay, 0.7, 0.0, m_final);
         imshow("video_ori", frame);
         imshow("video_out", m_output);
+        imshow("video_overlay",m_final);
 
-        press= waitKey(1);
+        press= waitKey(30);
 
         capture>>frame;
         current_frame++;
