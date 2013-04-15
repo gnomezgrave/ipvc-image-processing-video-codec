@@ -265,7 +265,8 @@ int main(int argc, char *argv[])
                 }
 
                 Point2d pc(0,0);
-                pc=phaseCorrelate(prevgreys_f[ARR2D(blocks_w,i,j)],greys_f[ARR2D(blocks_w,i,j)]);
+                double d;
+                pc=phaseCorrelateX(prevgreys_f[ARR2D(blocks_w,i,j)],greys_f[ARR2D(blocks_w,i,j)],&d);
 
                 unsigned correct=0;
                 unsigned complexity=0;
@@ -282,9 +283,9 @@ int main(int argc, char *argv[])
                             else{
                                 Vec3b pp=image->at<Vec3b>(h,w);
                                 Vec3b ii=output->at<Vec3b>(h,w);
-                                if (abs(pp[0]-ii[0] ) < differences_frame*38/(BLOCK_SIZE*BLOCK_SIZE) &&
-                                    abs(pp[1]-ii[1] ) < differences_frame*38/(BLOCK_SIZE*BLOCK_SIZE) &&
-                                    abs(pp[2]-ii[2] ) < differences_frame*38/(BLOCK_SIZE*BLOCK_SIZE) ){
+                                if (abs(pp[0]-ii[0] ) < differences_frame*25/(BLOCK_SIZE*BLOCK_SIZE) &&
+                                    abs(pp[1]-ii[1] ) < differences_frame*25/(BLOCK_SIZE*BLOCK_SIZE) &&
+                                    abs(pp[2]-ii[2] ) < differences_frame*25/(BLOCK_SIZE*BLOCK_SIZE) ){
                                     correct++;
                                 }
                             }
@@ -423,7 +424,7 @@ int main(int argc, char *argv[])
         imshow("video_out", m_output);
         imshow("video_overlay",m_final);
 
-        press= waitKey(30);
+        press= waitKey(2);
 
         capture>>frame;
         current_frame++;
@@ -440,7 +441,7 @@ int main(int argc, char *argv[])
             prevgreys_f=&m_output_greys_f2[0][0];
         }
     }
-    cout<<total_size<<endl;
+
     fclose(ipvc_file);
     //lzma_end (&strm);
 
