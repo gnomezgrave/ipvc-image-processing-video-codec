@@ -13,7 +13,6 @@
 #include <cstdio>
 #include <cmath>
 #include <stdint.h>
-//#include <lzma.h>
 #include "ipvc.h"
 #include <opencv2/highgui/highgui.hpp>
 
@@ -50,19 +49,10 @@ int blurmask3[3][3] = { { 1, 2, 1 } ,
                         { 1, 2, 1 }
                       };
 
+/*
 int main(int argc, char *argv[])
 {
-    /*uint32_t preset = COMPRESSION_LEVEL | (COMPRESSION_EXTREME ? LZMA_PRESET_EXTREME : 0);
-    lzma_check check = INTEGRITY_CHECK;
-    lzma_stream strm = LZMA_STREAM_INIT;
-    uint8_t *in_buf;
-    uint8_t *out_buf;
-    size_t in_len;
-    size_t out_len;
-    bool in_finished = false;
-    bool out_finished = false;
-    lzma_action action;
-    lzma_ret ret_xz;*/
+
     list<ipvc_block_move_t> l_block_moves;
     list<ipvc_block_t> l_blocks;
 
@@ -180,14 +170,8 @@ int main(int argc, char *argv[])
         }
     }
 
-    /* initialize xz encoder */
-    /*
-    ret_xz = lzma_easy_encoder (&strm, preset, check);
-    if (ret_xz != LZMA_OK) {
-        std::cerr <<"lzma_easy_encoder error: "<< ret_xz<<std::endl;
-        return -1;
-    }
-    */
+    //initialize xz encoder
+
     ipvc_file_header_t fh;
     fh.height = height;
     fh.width = width;
@@ -265,8 +249,8 @@ int main(int argc, char *argv[])
                 }
 
                 Point2d pc(0,0);
-                double d;
-                pc=phaseCorrelateX(prevgreys_f[ARR2D(blocks_w,i,j)],greys_f[ARR2D(blocks_w,i,j)],&d);
+                double d=0;
+                //pc=phaseCorrelateX(prevgreys_f[ARR2D(blocks_w,i,j)],greys_f[ARR2D(blocks_w,i,j)],&d);
 
                 unsigned correct=0;
                 unsigned complexity=0;
@@ -283,9 +267,9 @@ int main(int argc, char *argv[])
                             else{
                                 Vec3b pp=image->at<Vec3b>(h,w);
                                 Vec3b ii=output->at<Vec3b>(h,w);
-                                if (abs(pp[0]-ii[0] ) < differences_frame*25/(BLOCK_SIZE*BLOCK_SIZE) &&
-                                    abs(pp[1]-ii[1] ) < differences_frame*25/(BLOCK_SIZE*BLOCK_SIZE) &&
-                                    abs(pp[2]-ii[2] ) < differences_frame*25/(BLOCK_SIZE*BLOCK_SIZE) ){
+                                if (abs(pp[0]-ii[0] ) < differences_frame*38/(BLOCK_SIZE*BLOCK_SIZE) &&
+                                    abs(pp[1]-ii[1] ) < differences_frame*38/(BLOCK_SIZE*BLOCK_SIZE) &&
+                                    abs(pp[2]-ii[2] ) < differences_frame*38/(BLOCK_SIZE*BLOCK_SIZE) ){
                                     correct++;
                                 }
                             }
@@ -424,7 +408,7 @@ int main(int argc, char *argv[])
         imshow("video_out", m_output);
         imshow("video_overlay",m_final);
 
-        press= waitKey(2);
+        press= waitKey(30);
 
         capture>>frame;
         current_frame++;
@@ -441,11 +425,13 @@ int main(int argc, char *argv[])
             prevgreys_f=&m_output_greys_f2[0][0];
         }
     }
-
+    cout<<total_size<<endl;
     fclose(ipvc_file);
     //lzma_end (&strm);
 
     return 0;
-}
+}*/
+
+
 
 
