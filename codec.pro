@@ -1,10 +1,12 @@
 TEMPLATE = app
 CONFIG += console
 CONFIG -= app_bundle
-CONFIG -= qt
+
+QT       += core gui
+greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 
 SOURCES += main.cpp \
-    phasecorr.cpp
+    ipvcplayer.cpp
 
 QMAKE_CXXFLAGS += -O3
 win32{
@@ -15,4 +17,8 @@ win32{
 }
 
 HEADERS += \
-    ipvc.h
+    ipvc.h \
+    ipvcplayer.h
+
+FORMS += \
+    ipvcplayer.ui
