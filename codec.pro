@@ -25,5 +25,4 @@ HEADERS += \
     ipvcencoder.h
 
 FORMS += \
-    ipvcplayer.ui \
     ipvcmain.ui

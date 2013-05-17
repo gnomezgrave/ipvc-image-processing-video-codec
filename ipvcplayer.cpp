@@ -1,46 +1,36 @@
+#include <iostream>
+#include <cstdio>
+#include <opencv2/highgui/highgui.hpp>
+#include "ipvc.h"
 #include "ipvcplayer.h"
 #include "ui_ipvcplayer.h"
 
 using namespace cv;
 using namespace std;
 
-IpvcPlayer::IpvcPlayer(QWidget *parent) :
-    QDialog(parent),
-    ui(new Ui::IpvcPlayer)
-{
-    ui->setupUi(this);
-}
-
-IpvcPlayer::~IpvcPlayer()
-{
-    delete ui;
-}
-
-void IpvcPlayer::on_browse_clicked()
-{
-    QString s = QFileDialog::getOpenFileName(this,"Choose a file..." ,"./", "ipvc Files (*.ipvc)");
-    if(!s.isNull()){
-        ui->path->setText(s);
-        this->readFile(s);
-    }
-}
-
-void IpvcPlayer::readFile(QString file){
+IpvcPlayer::IpvcPlayer(char *inputfile) {
 
     namedWindow("Output", CV_WINDOW_AUTOSIZE );
+    ipvc_file_header_t fh;
+    FILE *ipvc_file = fopen(inputfile, "r");
+    fread(&fh,1,sizeof(ipvc_file_header_t),ipvc_file);
+    std::cout<<"Header info"<<std::endl;
+    std::cout<<" height "<<fh.height<<std::endl;
+    std::cout<<" width "<<fh.width<<std::endl;
+    std::cout<<" blocksize "<<fh.block_size<<std::endl;
+    std::cout<<" rate "<<(unsigned int)fh.rate<<std::endl;
 
-    FILE *ipvc_file = fopen(file.toStdString().c_str(), "r");
-    ipvc_file_header_t *fh = (ipvc_file_header_t*) malloc(sizeof(ipvc_file_header_t));
-    fread(fh,1,sizeof(ipvc_file_header_t),ipvc_file);
+    Mat output(fh.height,fh.width,CV_8UC3);
 
-    Mat output(fh->height,fh->width,CV_8UC3);
-
-    char type;
-    while(fread(&type,1,sizeof(char),ipvc_file)){
-        if((char)type==126){
-            for(int i=0;i<fh->height;i++){
-                for(int j=0;j<fh->width;j++){
-                    char r,g,b;
+    uchar type;
+    while(!feof(ipvc_file)){
+        fread(&type,1,sizeof(uchar),ipvc_file);
+        if((uchar)type==126){
+            unsigned id;
+            fread(&id,1,sizeof(int),ipvc_file);
+            for(int i=0;i<fh.height;i++){
+                for(int j=0;j<fh.width;j++){
+                    uchar r,g,b;
                     fread(&r,1,1,ipvc_file);
                     fread(&g,1,1,ipvc_file);
                     fread(&b,1,1,ipvc_file);
@@ -48,11 +38,15 @@ void IpvcPlayer::readFile(QString file){
                 }
             }
             imshow("Output", output);
+            waitKey(1000);
+            std::cout<<"Full frame"<<std::endl;
 
-        }else if((char)type==122){
-            printf("Move\n");
+        }else if((uchar)type==122){
+            ipvc_frame_header_read_t ff;
+            fread(&ff,1,sizeof(ipvc_frame_header_read_t),ipvc_file);
+            std::cout<<"Move"<<std::endl;
         }
     }
-
+    std::cout<<"Decoding Done"<<std::endl;
 }
 

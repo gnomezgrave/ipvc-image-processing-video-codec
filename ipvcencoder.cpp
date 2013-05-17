@@ -8,9 +8,6 @@
 #include "ipvc.h"
 #include <opencv2/highgui/highgui.hpp>
 
-#include <QApplication>
-#include <QMainWindow>
-
 #include "ipvcmain.h"
 
 #define OUT_FILE argv[2]
@@ -170,7 +167,8 @@ IpvcEncoder::IpvcEncoder(char *inputfile, char *outputfile)
     ipvc_file_header_t fh;
     fh.height = height;
     fh.width = width;
-
+    fh.block_size = BLOCK_SIZE;
+    fh.rate = 30;
     fwrite(&fh, 1,sizeof(ipvc_file_header_t),ipvc_file);
 
 
@@ -212,13 +210,22 @@ IpvcEncoder::IpvcEncoder(char *inputfile, char *outputfile)
         if (p_diff>0.8f) {
             // full frame
             ipvc_frame_full_header_t frh;
+            frh.frame_type = 126;
             frh.frame_id = current_frame;
             fwrite(&frh, 1,sizeof(ipvc_frame_full_header_t),ipvc_file);
 
             image->copyTo(m_output);
             image->copyTo(*previmage);
-            fwrite(m_output.data, 1,1, ipvc_file);
-
+            unsigned char dd[3];
+            for (int a=0;a<height;a++){
+               for (int b=0;b<width;b++){
+                   Vec3b ff=  m_output.at<Vec3b>(a,b);
+                   dd[0]=ff[0];
+                   dd[1]=ff[1];
+                   dd[2]=ff[2];
+                   fwrite(dd, 1,3, ipvc_file);
+               }
+            }
             cout<<"full"<<endl;
         }
         for (unsigned i=0;i<blocks_h;i++){
@@ -381,6 +388,7 @@ IpvcEncoder::IpvcEncoder(char *inputfile, char *outputfile)
         if (!l_blocks.empty() || !l_block_moves.empty()){
 
             ipvc_frame_header_t frh;
+            frh.frame_type = 122;
             frh.frame_id = current_frame;
             frh.blocks = l_blocks.size();
             frh.block_moves = l_block_moves.size();
@@ -421,6 +429,7 @@ IpvcEncoder::IpvcEncoder(char *inputfile, char *outputfile)
         }
     }
     cout<<total_size<<endl;
+    fflush(ipvc_file);
     fclose(ipvc_file);
     //lzma_end (&strm);
 }

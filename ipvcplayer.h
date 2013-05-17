@@ -18,20 +18,12 @@ namespace Ui {
 class IpvcPlayer;
 }
 
-class IpvcPlayer : public QDialog
+class IpvcPlayer
 {
-    Q_OBJECT
-    
-public:
-    explicit IpvcPlayer(QWidget *parent = 0);
-    ~IpvcPlayer();
-    
-private slots:
-    void on_browse_clicked();
-    void readFile(QString file);
 
-private:
-    Ui::IpvcPlayer *ui;
+public:
+    IpvcPlayer(char *inputfile);
+
 };
 
 #endif // IPVCPLAYER_H

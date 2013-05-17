@@ -16,21 +16,21 @@ struct ipvc_file_header_t{
 };
 
 struct ipvc_frame_full_header_t {
-    uchar frame_type=126; // 126: full frame
+    uchar frame_type; // 126: full frame
     unsigned frame_id;
 };
 
 struct ipvc_frame_header_t{
-    uchar frame_type=122; // 122: blocks
+    uchar frame_type; // 122: blocks
     unsigned frame_id;
     ushort blocks;
     ushort block_moves;
 };
-struct ipvc_frame_full_header_read {
+struct ipvc_frame_full_header_read_t {
     unsigned frame_id;
 };
 
-struct ipvc_frame_header_read{
+struct ipvc_frame_header_read_t{
     unsigned frame_id;
     ushort blocks;
     ushort block_moves;

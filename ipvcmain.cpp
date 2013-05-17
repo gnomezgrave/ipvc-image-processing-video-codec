@@ -3,6 +3,7 @@
 #include "ipvcencoder.h"
 #include "ui_ipvcmain.h"
 #include <iostream>
+
 IpvcMain::IpvcMain(QWidget *parent) :
     QDialog(parent),
     ui(new Ui::IpvcMain)
@@ -11,13 +12,11 @@ IpvcMain::IpvcMain(QWidget *parent) :
 }
 void IpvcMain::on_btnPlayer_clicked()
 {
-    IpvcPlayer ip;
-    ip.setVisible(true);
-    ip.exec();
+    IpvcPlayer ip("/home/madura/out.ipvc");
 }
 void IpvcMain::on_btnEncoder_clicked()
 {
-    IpvcEncoder ie("/home/madura/Desktop/sx.mp4","/home/madura/out.ipvc");
+    IpvcEncoder ie("/home/madura/Desktop/ss.webm","/home/madura/out.ipvc");
 
 }
 void IpvcMain::on_btnExit_clicked()
