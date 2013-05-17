@@ -1,13 +1,13 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <ui version="4.0">
- <class>ipvcPlayer</class>
- <widget class="QMainWindow" name="ipvcPlayer">
+ <class>IpvcPlayer</class>
+ <widget class="QDialog" name="IpvcPlayer">
   <property name="geometry">
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>567</width>
-    <height>525</height>
+    <width>637</width>
+    <height>160</height>
    </rect>
   </property>
   <property name="windowTitle">

@@ -1,23 +1,22 @@
 #include "ipvcplayer.h"
 #include "ui_ipvcplayer.h"
 
-
 using namespace cv;
 using namespace std;
 
-ipvcPlayer::ipvcPlayer(QWidget *parent) :
-    QMainWindow(parent),
-    ui(new Ui::ipvcPlayer)
+IpvcPlayer::IpvcPlayer(QWidget *parent) :
+    QDialog(parent),
+    ui(new Ui::IpvcPlayer)
 {
     ui->setupUi(this);
 }
 
-ipvcPlayer::~ipvcPlayer()
+IpvcPlayer::~IpvcPlayer()
 {
     delete ui;
 }
 
-void ipvcPlayer::on_browse_clicked()
+void IpvcPlayer::on_browse_clicked()
 {
     QString s = QFileDialog::getOpenFileName(this,"Choose a file..." ,"./", "ipvc Files (*.ipvc)");
     if(!s.isNull()){
@@ -26,7 +25,7 @@ void ipvcPlayer::on_browse_clicked()
     }
 }
 
-void ipvcPlayer::readFile(QString file){
+void IpvcPlayer::readFile(QString file){
 
     namedWindow("Output", CV_WINDOW_AUTOSIZE );
 
@@ -39,8 +38,8 @@ void ipvcPlayer::readFile(QString file){
     char type;
     while(fread(&type,1,sizeof(char),ipvc_file)){
         if((char)type==126){
-            for(int i=0;i<fh->width;i++){
-                for(int j=0;j<fh->height;j++){
+            for(int i=0;i<fh->height;i++){
+                for(int j=0;j<fh->width;j++){
                     char r,g,b;
                     fread(&r,1,1,ipvc_file);
                     fread(&g,1,1,ipvc_file);
@@ -57,10 +56,3 @@ void ipvcPlayer::readFile(QString file){
 
 }
 
-int main(int argc, char *argv[])
-{
-    QApplication a(argc, argv);
-    ipvcPlayer w;
-    w.show();
-    return a.exec();
-}

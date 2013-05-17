@@ -10,29 +10,28 @@
 #include "ipvc.h"
 #include <opencv2/highgui/highgui.hpp>
 
-#include <QApplication>
-#include <QMainWindow>
 #include <QFileDialog>
 #include <QString>
+#include <QDialog>
 
 namespace Ui {
-class ipvcPlayer;
+class IpvcPlayer;
 }
 
-class ipvcPlayer : public QMainWindow
+class IpvcPlayer : public QDialog
 {
     Q_OBJECT
     
 public:
-    explicit ipvcPlayer(QWidget *parent = 0);
-    ~ipvcPlayer();
+    explicit IpvcPlayer(QWidget *parent = 0);
+    ~IpvcPlayer();
     
 private slots:
     void on_browse_clicked();
     void readFile(QString file);
 
 private:
-    Ui::ipvcPlayer *ui;
+    Ui::IpvcPlayer *ui;
 };
 
 #endif // IPVCPLAYER_H
