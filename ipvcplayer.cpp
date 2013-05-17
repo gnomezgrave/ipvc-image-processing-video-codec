@@ -45,7 +45,7 @@ IpvcPlayer::IpvcPlayer(char *inputfile) {
             }
             imshow("Output", output);
 
-            waitKey(30);
+            waitKey(1000/fh.rate);
 
         }else if(type==122){
 
@@ -74,7 +74,7 @@ IpvcPlayer::IpvcPlayer(char *inputfile) {
 
             }
             imshow("Output", output);
-            waitKey(30);
+            waitKey(1000/fh.rate);
             for (ushort bb=0;bb<ff.block_moves;bb++) {
                 ipvc_block_move_t mv;
                 fread(&mv,1,sizeof(ipvc_block_move_t),ipvc_file);
