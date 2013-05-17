@@ -16,7 +16,7 @@ void IpvcMain::on_btnPlayer_clicked()
 }
 void IpvcMain::on_btnEncoder_clicked()
 {
-    IpvcEncoder ie("/home/madura/Desktop/ss.webm","/home/madura/out.ipvc");
+    IpvcEncoder ie("/home/madura/Desktop/ssx.webm","/home/madura/out.ipvc");
 
 }
 void IpvcMain::on_btnExit_clicked()

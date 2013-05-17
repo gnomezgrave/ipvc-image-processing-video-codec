@@ -212,6 +212,7 @@ IpvcEncoder::IpvcEncoder(char *inputfile, char *outputfile)
             ipvc_frame_full_header_t frh;
             frh.frame_type = 126;
             frh.frame_id = current_frame;
+            std::cout<<frh.frame_id<<"sddfs"<<std::endl;
             fwrite(&frh, 1,sizeof(ipvc_frame_full_header_t),ipvc_file);
 
             image->copyTo(m_output);
@@ -309,6 +310,10 @@ IpvcEncoder::IpvcEncoder(char *inputfile, char *outputfile)
                         changed=true;
                         modd[i][j]=IPVC_PC;
                         ipvc_block_move_t block;
+                        block.block_id = ARR2D(blocks_w,i,j);
+                        block.move_h = (float) pc.y;
+                        block.move_w = (float) pc.x;
+
                         l_block_moves.push_back(block);
 
                     } else if (correct > 0.9){
@@ -336,7 +341,7 @@ IpvcEncoder::IpvcEncoder(char *inputfile, char *outputfile)
                     }
                     if (differences > 0) {
                         ipvc_block_t block;
-                        block.block_id = ARR2D(BLOCK_SIZE,i,j);
+                        block.block_id = ARR2D(blocks_w,i,j);
                         for (int a=0;a<BLOCK_SIZE;a++) {
                             for (int b=0;b<BLOCK_SIZE;b++) {
                                 int h=i*BLOCK_SIZE;
@@ -395,12 +400,14 @@ IpvcEncoder::IpvcEncoder(char *inputfile, char *outputfile)
             fwrite(&frh,1,sizeof(ipvc_frame_header_t),ipvc_file);
             if (!l_blocks.empty()){
                 for (list<ipvc_block_t>::iterator it=l_blocks.begin();it!=l_blocks.end();it++){
-                    fwrite(&(*it),1,sizeof(ipvc_block_t),ipvc_file);
+                    ipvc_block_t bb=*it;
+                    fwrite(&bb,1,sizeof(ipvc_block_t),ipvc_file);
                 }
             }
             if (!l_block_moves.empty()){
                 for (list<ipvc_block_move_t>::iterator it=l_block_moves.begin();it!=l_block_moves.end();it++){
-                    fwrite(&(*it),1,sizeof(ipvc_block_move_t),ipvc_file);
+                    ipvc_block_move_t bm=*it;
+                    fwrite(&bm,1,sizeof(ipvc_block_move_t),ipvc_file);
                 }
             }
             l_blocks.clear();
@@ -411,7 +418,7 @@ IpvcEncoder::IpvcEncoder(char *inputfile, char *outputfile)
         imshow("video_out", m_output);
         imshow("video_overlay",m_final);
 
-        press= waitKey(30);
+        press= waitKey(1);
 
         capture>>frame;
         current_frame++;
