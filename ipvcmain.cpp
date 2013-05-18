@@ -33,7 +33,7 @@ void IpvcMain::on_btnEncoder_clicked()
             }
             fclose(f);
         }
-        IpvcEncoder ie(in,out);
+        IpvcEncoder ie(this,in,out);
     }
 
 }
@@ -44,4 +44,13 @@ void IpvcMain::on_btnExit_clicked()
 IpvcMain::~IpvcMain()
 {
     delete ui;
+}
+bool IpvcMain::getIfOriginalVideoShown(){
+    return ui->chkOri->isChecked();
+}
+bool IpvcMain::getIfOverlayVideoShown(){
+    return ui->chkOvr->isChecked();
+}
+bool IpvcMain::getIfOutputVideoShown(){
+    return ui->chkOut->isChecked();
 }

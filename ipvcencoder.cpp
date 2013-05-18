@@ -46,7 +46,7 @@ int blurmask3[3][3] = {
     { 1, 2, 1}
 };
 
-IpvcEncoder::IpvcEncoder(QString inputfile, QString outputfile) {
+IpvcEncoder::IpvcEncoder(IpvcMain* parent,QString inputfile, QString outputfile) {
 
     list<ipvc_block_move_t> l_block_moves;
     list<ipvc_block_t> l_blocks;
@@ -62,10 +62,9 @@ IpvcEncoder::IpvcEncoder(QString inputfile, QString outputfile) {
 
     FILE *ipvc_file = fopen(outputfile.toStdString().c_str(), "w");
 
-    namedWindow("video_ori", CV_WINDOW_AUTOSIZE);
-    namedWindow("video_out", CV_WINDOW_AUTOSIZE);
-    // namedWindow( "video_grey", CV_WINDOW_AUTOSIZE );
-    namedWindow("video_overlay", CV_WINDOW_AUTOSIZE);
+    namedWindow("Original_Video", CV_WINDOW_AUTOSIZE);
+    namedWindow("Overlay_Video", CV_WINDOW_AUTOSIZE);
+    namedWindow("Output_Video", CV_WINDOW_AUTOSIZE);
 
 
     VideoCapture capture;
@@ -416,9 +415,9 @@ IpvcEncoder::IpvcEncoder(QString inputfile, QString outputfile) {
             l_block_moves.clear();
         }
         addWeighted(m_output, 1.0, m_output_overlay, 0.7, 0.0, m_final);
-        imshow("video_ori", frame);
-        imshow("video_out", m_output);
-        imshow("video_overlay", m_final);
+        if(parent->getIfOriginalVideoShown())   imshow("Original_Video", frame);
+        if(parent->getIfOutputVideoShown())     imshow("Overlay_Video", m_output);
+        if(parent->getIfOverlayVideoShown())    imshow("Output_Video", m_final);
 
         press = waitKey(1);
 
@@ -440,4 +439,7 @@ IpvcEncoder::IpvcEncoder(QString inputfile, QString outputfile) {
  //   cout << total_size << endl;
     fflush(ipvc_file);
     fclose(ipvc_file);
+    destroyWindow("Original_Video");
+    destroyWindow("Overlay_Video");
+    destroyWindow("Output_Video");
 }

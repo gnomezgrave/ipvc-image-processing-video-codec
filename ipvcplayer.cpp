@@ -126,10 +126,10 @@ IpvcPlayer::IpvcPlayer(QString inputfile) {
 
             }
         }
-        waitKey(1);
+        waitKey(1000/fh.rate);
         imshow("Output", output);
     }
 
     std::cout << "Decoding Done" << std::endl;
-
+    destroyWindow("Output");
 }

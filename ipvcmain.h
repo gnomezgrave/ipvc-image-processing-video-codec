@@ -18,9 +18,12 @@ public slots:
     void on_btnPlayer_clicked();
     void on_btnEncoder_clicked();
     void on_btnExit_clicked();
+    bool getIfOriginalVideoShown();
+    bool getIfOverlayVideoShown();
+    bool getIfOutputVideoShown();
 
 private:
-    Ui::IpvcMain *ui;
+Ui::IpvcMain *ui;
 };
 
 #endif // IPVCMAIN_H

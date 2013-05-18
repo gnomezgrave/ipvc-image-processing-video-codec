@@ -1,11 +1,12 @@
 #ifndef IPVCENCODER_H
 #define IPVCENCODER_H
 #include "ipvcplayer.h"
+#include "ipvcmain.h"
 
 class IpvcEncoder
 {
 public:
-    IpvcEncoder(QString inputfile, QString outputfile);
+    IpvcEncoder(IpvcMain* parent,QString inputfile, QString outputfile);
 };
 
 #endif // IPVCENCODER_H
