@@ -213,7 +213,6 @@ IpvcEncoder::IpvcEncoder(QString inputfile, QString outputfile) {
             ipvc_frame_full_header_t frh;
             frh.frame_type = 126;
             frh.frame_id = current_frame;
-            std::cout << frh.frame_id << "sddfs" << std::endl;
             fwrite(&frh, 1, sizeof (ipvc_frame_full_header_t), ipvc_file);
 
             image->copyTo(m_output);
@@ -254,7 +253,7 @@ IpvcEncoder::IpvcEncoder(QString inputfile, QString outputfile) {
 
                 Point2d pc(0, 0);
                 double d = 0;
-                //         pc=phaseCorrelate(prevgreys_f[ARR2D(blocks_w,i,j)],greys_f[ARR2D(blocks_w,i,j)]);
+               // pc=phaseCorrelate(prevgreys_f[ARR2D(blocks_w,i,j)],greys_f[ARR2D(blocks_w,i,j)]);
 
                 unsigned correct = 0;
                 unsigned complexity = 0;
@@ -283,7 +282,7 @@ IpvcEncoder::IpvcEncoder(QString inputfile, QString outputfile) {
                         }
                     }
 
-                    if (complexity > BLOCK_SIZE * BLOCK_SIZE * 0.001 && correct > BLOCK_SIZE * BLOCK_SIZE * 0.8 && !edge) {
+                    if (complexity > BLOCK_SIZE * BLOCK_SIZE * 0.0001 && correct > BLOCK_SIZE * BLOCK_SIZE * 0.9 && !edge) {
 
                         for (int a = 0; a < BLOCK_SIZE; a++) {
                             for (int b = 0; b < BLOCK_SIZE; b++) {
@@ -340,7 +339,7 @@ IpvcEncoder::IpvcEncoder(QString inputfile, QString outputfile) {
 
                         }
                     }
-                    if (differences > 0) {
+                    if (differences > 10) {
                         ipvc_block_t block;
                         block.block_id = ARR2D(blocks_w, i, j);
                         for (int a = 0; a < BLOCK_SIZE; a++) {
