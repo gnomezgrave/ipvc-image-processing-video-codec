@@ -60,6 +60,10 @@ IpvcPlayer::IpvcPlayer(char *inputfile) {
                 unsigned h = (block_id / block_w) * fh.block_size;
                 unsigned w = (block_id % block_w) * fh.block_size;
                 std::cout<<h<<" "<<w<<std::endl;
+                if (h>fh.height ||w>fh.width){
+                    break;
+                }
+                std::cout<<h<<" "<<w<<std::endl;
                 for (int i = 0; i < fh.block_size; i++) {
                     for (int j = 0; j < fh.block_size; j++) {
                         uchar rgb[3];
