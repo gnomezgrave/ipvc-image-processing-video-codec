@@ -339,9 +339,10 @@ IpvcEncoder::IpvcEncoder(QString inputfile, QString outputfile) {
 
                         }
                     }
-                    if (differences > 10) {
+                    if (differences > 8) {
                         ipvc_block_t block;
                         block.block_id = ARR2D(blocks_w, i, j);
+                                    std::cout<<block.block_id<<std::endl;
                         for (int a = 0; a < BLOCK_SIZE; a++) {
                             for (int b = 0; b < BLOCK_SIZE; b++) {
                                 int h = i*BLOCK_SIZE;
@@ -407,6 +408,7 @@ IpvcEncoder::IpvcEncoder(QString inputfile, QString outputfile) {
             if (!l_block_moves.empty()) {
                 for (list<ipvc_block_move_t>::iterator it = l_block_moves.begin(); it != l_block_moves.end(); it++) {
                     ipvc_block_move_t bm = *it;
+
                     fwrite(&bm, 1, sizeof (ipvc_block_move_t), ipvc_file);
                 }
             }
@@ -435,8 +437,7 @@ IpvcEncoder::IpvcEncoder(QString inputfile, QString outputfile) {
             prevgreys_f = &m_output_greys_f2[0][0];
         }
     }
-    cout << total_size << endl;
+ //   cout << total_size << endl;
     fflush(ipvc_file);
     fclose(ipvc_file);
-    //lzma_end (&strm);
 }

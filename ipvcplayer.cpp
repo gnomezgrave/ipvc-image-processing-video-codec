@@ -29,11 +29,10 @@ IpvcPlayer::IpvcPlayer(QString inputfile) {
     uchar type;
     while (!feof(ipvc_file)) {
         fread(&type, 1, sizeof (uchar), ipvc_file);
-        unsigned id;
-        fread(&id, 1, sizeof (unsigned), ipvc_file);
 
-        waitKey(1000 / fh.rate);
         if (type == 126) {
+            unsigned id;
+            fread(&id, 1, sizeof (unsigned), ipvc_file);
             std::cout << "Full frame" << std::endl;
             printf("%x", id);
             for (int i = 0; i < fh.height; i++) {
@@ -51,7 +50,7 @@ IpvcPlayer::IpvcPlayer(QString inputfile) {
             ipvc_frame_header_read_t ff;
 
             fread(&ff, 1, sizeof (ipvc_frame_header_read_t), ipvc_file);
-            std::cout << "frame " << id << std::endl;
+            std::cout << "frame " << ff.frame_id << std::endl;
             std::cout << "blocks " << ff.blocks << std::endl;
             std::cout << "moves " << ff.block_moves << std::endl;
 
@@ -60,6 +59,10 @@ IpvcPlayer::IpvcPlayer(QString inputfile) {
                 fread(&block_id, 1, sizeof (short), ipvc_file);
                 unsigned h = (block_id / block_w) * fh.block_size;
                 unsigned w = (block_id % block_w) * fh.block_size;
+                std::cout<<h<<" "<<w<<std::endl;
+                if (h>fh.height ||w>fh.width){
+                    break;
+                }
                 std::cout<<h<<" "<<w<<std::endl;
                 for (int i = 0; i < fh.block_size; i++) {
                     for (int j = 0; j < fh.block_size; j++) {
@@ -123,6 +126,7 @@ IpvcPlayer::IpvcPlayer(QString inputfile) {
 
             }
         }
+        waitKey(1);
         imshow("Output", output);
     }
 
