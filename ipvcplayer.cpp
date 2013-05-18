@@ -29,11 +29,10 @@ IpvcPlayer::IpvcPlayer(char *inputfile) {
     uchar type;
     while (!feof(ipvc_file)) {
         fread(&type, 1, sizeof (uchar), ipvc_file);
-        unsigned id;
-        fread(&id, 1, sizeof (unsigned), ipvc_file);
 
-        waitKey(1000 / fh.rate);
         if (type == 126) {
+            unsigned id;
+            fread(&id, 1, sizeof (unsigned), ipvc_file);
             std::cout << "Full frame" << std::endl;
             printf("%x", id);
             for (int i = 0; i < fh.height; i++) {
@@ -51,7 +50,7 @@ IpvcPlayer::IpvcPlayer(char *inputfile) {
             ipvc_frame_header_read_t ff;
 
             fread(&ff, 1, sizeof (ipvc_frame_header_read_t), ipvc_file);
-            std::cout << "frame " << id << std::endl;
+            std::cout << "frame " << ff.frame_id << std::endl;
             std::cout << "blocks " << ff.blocks << std::endl;
             std::cout << "moves " << ff.block_moves << std::endl;
 
@@ -123,6 +122,7 @@ IpvcPlayer::IpvcPlayer(char *inputfile) {
 
             }
         }
+        waitKey(1);
         imshow("Output", output);
     }
 
