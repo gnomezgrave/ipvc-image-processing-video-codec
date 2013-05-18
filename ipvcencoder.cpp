@@ -46,7 +46,7 @@ int blurmask3[3][3] = {
     { 1, 2, 1}
 };
 
-IpvcEncoder::IpvcEncoder(char *inputfile, char *outputfile) {
+IpvcEncoder::IpvcEncoder(QString inputfile, QString outputfile) {
 
     list<ipvc_block_move_t> l_block_moves;
     list<ipvc_block_t> l_blocks;
@@ -60,7 +60,7 @@ IpvcEncoder::IpvcEncoder(char *inputfile, char *outputfile) {
     unsigned changes;
     unsigned current_frame = 0;
 
-    FILE *ipvc_file = fopen(outputfile, "w");
+    FILE *ipvc_file = fopen(outputfile.toStdString().c_str(), "w");
 
     namedWindow("video_ori", CV_WINDOW_AUTOSIZE);
     namedWindow("video_out", CV_WINDOW_AUTOSIZE);
@@ -69,7 +69,7 @@ IpvcEncoder::IpvcEncoder(char *inputfile, char *outputfile) {
 
 
     VideoCapture capture;
-    capture.open(inputfile);
+    capture.open(inputfile.toStdString());
     Mat frame;
 
     capture >> frame;

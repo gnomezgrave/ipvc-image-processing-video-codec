@@ -7,12 +7,12 @@
 using namespace cv;
 using namespace std;
 
-IpvcPlayer::IpvcPlayer(char *inputfile) {
+IpvcPlayer::IpvcPlayer(QString inputfile) {
     unsigned block_w, block_h;
     namedWindow("Output", CV_WINDOW_AUTOSIZE);
 
     ipvc_file_header_t fh;
-    FILE *ipvc_file = fopen(inputfile, "r");
+    FILE *ipvc_file = fopen(inputfile.toStdString().c_str(), "r");
     fread(&fh, 1, sizeof (ipvc_file_header_t), ipvc_file);
     std::cout << "Header info" << std::endl;
     std::cout << " height " << fh.height << std::endl;
@@ -90,4 +90,5 @@ IpvcPlayer::IpvcPlayer(char *inputfile) {
         }
     }
     std::cout << "Decoding Done" << std::endl;
+
 }

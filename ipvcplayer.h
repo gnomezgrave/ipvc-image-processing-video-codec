@@ -13,6 +13,10 @@
 #include <QFileDialog>
 #include <QString>
 #include <QDialog>
+#include <QFileDialog>
+#include <QFile>
+#include <QMessageBox>
+#include <iostream>
 
 namespace Ui {
 class IpvcPlayer;
@@ -22,7 +26,7 @@ class IpvcPlayer
 {
 
 public:
-    IpvcPlayer(char *inputfile);
+    IpvcPlayer(QString inputfile);
 
 };
 
