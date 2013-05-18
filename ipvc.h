@@ -24,13 +24,11 @@ struct __attribute__((packed)) ipvc_frame_header_t {
     ushort blocks;
     ushort block_moves;
 };
-
+/*
 struct __attribute__((packed)) ipvc_frame_full_header_read_t {
-    unsigned frame_id;
-};
+};*/
 
 struct __attribute__((packed)) ipvc_frame_header_read_t {
-    unsigned frame_id;
     ushort blocks;
     ushort block_moves;
 };
