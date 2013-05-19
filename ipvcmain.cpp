@@ -4,7 +4,6 @@
 #include "ui_ipvcmain.h"
 
 
-
 IpvcMain::IpvcMain(QWidget *parent) :
     QDialog(parent),
     ui(new Ui::IpvcMain)
@@ -53,4 +52,9 @@ bool IpvcMain::getIfOverlayVideoShown(){
 }
 bool IpvcMain::getIfOutputVideoShown(){
     return ui->chkOut->isChecked();
+}
+void IpvcMain::setPercentage(double initSize,QString output){
+    QFile out(output);
+    double per=out.size()*100/initSize;
+    ui->percentage->setText(QString::number(per).append(" %"));
 }

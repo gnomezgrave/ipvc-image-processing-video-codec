@@ -37,7 +37,7 @@
      <x>9</x>
      <y>9</y>
      <width>461</width>
-     <height>211</height>
+     <height>91</height>
     </rect>
    </property>
    <property name="sizePolicy">
@@ -155,13 +155,19 @@
      <bool>true</bool>
     </property>
    </widget>
-   <zorder>btnPlayer</zorder>
-   <zorder>btnExit</zorder>
-   <zorder>btnEncoder</zorder>
-   <zorder>btnEncoder</zorder>
-   <zorder>chkOri</zorder>
-   <zorder>chkOvr</zorder>
-   <zorder>chkOut</zorder>
+  </widget>
+  <widget class="QLabel" name="percentage">
+   <property name="geometry">
+    <rect>
+     <x>10</x>
+     <y>110</y>
+     <width>231</width>
+     <height>61</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string/>
+   </property>
   </widget>
  </widget>
  <resources/>

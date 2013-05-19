@@ -21,7 +21,7 @@ public slots:
     bool getIfOriginalVideoShown();
     bool getIfOverlayVideoShown();
     bool getIfOutputVideoShown();
-
+    void setPercentage(double initSize,QString output);
 private:
 Ui::IpvcMain *ui;
 };

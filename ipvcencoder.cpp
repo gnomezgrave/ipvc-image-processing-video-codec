@@ -171,8 +171,8 @@ IpvcEncoder::IpvcEncoder(IpvcMain* parent,QString inputfile, QString outputfile)
     fh.block_size = BLOCK_SIZE;
     fh.rate = 30;
     fwrite(&fh, 1, sizeof (ipvc_file_header_t), ipvc_file);
-
-
+    double size = height*width*3*fh.rate;
+    int count=0;
     for (unsigned i = 0; i < blocks_h; i++) {
         for (unsigned j = 0; j < blocks_w; j++) {
             for (int a = 0; a < BLOCK_SIZE; a++) {
@@ -418,6 +418,7 @@ IpvcEncoder::IpvcEncoder(IpvcMain* parent,QString inputfile, QString outputfile)
         if(parent->getIfOriginalVideoShown())   imshow("Original_Video", frame);
         if(parent->getIfOutputVideoShown())     imshow("Overlay_Video", m_output);
         if(parent->getIfOverlayVideoShown())    imshow("Output_Video", m_final);
+        parent->setPercentage(size*(count++),outputfile);
 
         press = waitKey(1);
 
