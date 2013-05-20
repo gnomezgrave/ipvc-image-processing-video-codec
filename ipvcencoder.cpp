@@ -226,6 +226,8 @@ IpvcEncoder::IpvcEncoder(IpvcMain* parent,QString inputfile, QString outputfile)
             fwrite((uchar *)ff.data(),1,ff.size(),ipvc_file);
             cout<<total_size<<" "<<ff.size()<<endl;
 
+
+
            /* unsigned char dd[3];
             for (int a = 0; a < height; a++) {
                 for (int b = 0; b < width; b++) {
@@ -358,9 +360,19 @@ IpvcEncoder::IpvcEncoder(IpvcMain* parent,QString inputfile, QString outputfile)
                                 int w = j*BLOCK_SIZE;
                                 Vec3b nv = image->at<Vec3b > (h + a, w + b);
                                 output->at<Vec3b > (h + a, w + b) = nv; //.mul(Vec3b(0,1,1));
-                                block.data[ARR2D(BLOCK_SIZE, a, b)*3 + 0] = nv[0];
-                                block.data[ARR2D(BLOCK_SIZE, a, b)*3 + 1] = nv[1];
-                                block.data[ARR2D(BLOCK_SIZE, a, b)*3 + 2] = nv[2];
+                                m_block.at<Vec3b>(a,b)=nv;
+
+                            }
+                        }
+                        vector<uchar> ff;
+                        imencode(".jpg",m_block,ff);
+
+                        block.data = ff;
+                        block.block_size = ff.size();
+                        for (int i=0;i<ff.size()-2;i++){
+                            cout<<ff[i];
+                            if (ff[i]==255 && ff[i+1]==218) {
+                                cout<<i<<endl;
 
                             }
                         }

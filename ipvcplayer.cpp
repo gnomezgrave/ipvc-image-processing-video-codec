@@ -72,22 +72,31 @@ IpvcPlayer::IpvcPlayer(QString inputfile) {
             std::cout << "moves " << ff.block_moves << std::endl;
 
             for (ushort bb = 0; bb < ff.blocks; bb++) {
-                short block_id;
-                fread(&block_id, 1, sizeof (short), ipvc_file);
-                unsigned h = (block_id / block_w) * fh.block_size;
-                unsigned w = (block_id % block_w) * fh.block_size;
+                ipvc_block_read_t bbc;
+                fread(&bbc, 1, sizeof (ipvc_block_read_t), ipvc_file);
+
+                unsigned h = (bbc.block_id / block_w) * fh.block_size;
+                unsigned w = (bbc.block_id % block_w) * fh.block_size;
+
                 std::cout<<h<<" "<<w<<std::endl;
                 if (h>fh.height ||w>fh.width){
                     break;
                 }
-                std::cout<<h<<" "<<w<<std::endl;
+
+                uchar jpegbuff[bbc.block_size];
+                fread(&jpegbuff, 1, bbc.block_size, ipvc_file);
+                vector<uchar> vdata(jpegbuff,jpegbuff + bbc.block_size);
+
+                Mat m_buff= imdecode(Mat(vdata),1);
+                cout<<m_buff.rows<< " "<<m_buff.cols<<endl;
                 for (int i = 0; i < fh.block_size; i++) {
                     for (int j = 0; j < fh.block_size; j++) {
-                        uchar rgb[3];
-                        fread(&rgb, 1, 3, ipvc_file);
 
+                        output.at<Vec4b > (h+i, w+j) [0] = m_buff.at<Vec3b>(i,j)[0];
+                        output.at<Vec4b > (h+i, w+j) [1] = m_buff.at<Vec3b>(i,j)[1];
+                        output.at<Vec4b > (h+i, w+j) [2] = m_buff.at<Vec3b>(i,j)[2];
+                        output.at<Vec4b > (h+i, w+j) [3] = 255;
 
-                        output.at<Vec4b > (h+i, w+j) = Vec4b(rgb[0], rgb[1], rgb[2],255);
                     }
                 }
 

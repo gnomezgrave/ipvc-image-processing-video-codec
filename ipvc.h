@@ -35,9 +35,15 @@ struct __attribute__((packed)) ipvc_frame_header_read_t {
     ushort block_moves;
 };
 
+struct __attribute__((packed)) ipvc_block_read_t {
+    ushort block_id;
+    ushort block_size;
+};
+
 struct __attribute__((packed)) ipvc_block_t {
     ushort block_id;
-    uchar data[BLOCK_SIZE * BLOCK_SIZE * 3];
+    ushort block_size;
+    std::vector<uchar> data;
 };
 
 struct __attribute__((packed)) ipvc_block_move_t {
