@@ -15,13 +15,16 @@ IpvcPlayer::IpvcPlayer(QString inputfile) {
     namedWindow("Output", CV_WINDOW_AUTOSIZE);
 
     ipvc_file_header_t fh;
+    bool common_header_read=false;
+    ushort common_header_size=0;
+    vector<uchar> bheader;
     FILE *ipvc_file = fopen(inputfile.toStdString().c_str(), "r");
     fread(&fh, 1, sizeof (ipvc_file_header_t), ipvc_file);
-    std::cout << "Header info" << std::endl;
-    std::cout << " height " << fh.height << std::endl;
-    std::cout << " width " << fh.width << std::endl;
-    std::cout << " blocksize " << fh.block_size << std::endl;
-    std::cout << " rate " << (unsigned int) fh.rate << std::endl;
+    std::cerr << "Header info" << std::endl;
+    std::cerr << " height " << fh.height << std::endl;
+    std::cerr << " width " << fh.width << std::endl;
+    std::cerr << " blocksize " << fh.block_size << std::endl;
+    std::cerr << " rate " << (unsigned int) fh.rate << std::endl;
 
     Mat output(fh.height, fh.width, CV_8UC4);
 
@@ -31,6 +34,7 @@ IpvcPlayer::IpvcPlayer(QString inputfile) {
     uchar type;
     unsigned fid;
     output = Mat::zeros(output.size(),CV_8UC4);
+
     while (!feof(ipvc_file)) {
         fread(&type, 1, sizeof (uchar), ipvc_file);
         fread(&fid, 1, sizeof (unsigned), ipvc_file);
@@ -48,7 +52,7 @@ IpvcPlayer::IpvcPlayer(QString inputfile) {
             vector<uchar> vdata(jpegbuff,jpegbuff + fhx.frame_size);
 
             Mat m_buff= imdecode(Mat(vdata),1);
-            std::cout << "Full frame" << std::endl;
+            std::cerr << "Full frame" << std::endl;
 
             for (int i = 0; i < fh.height; i++) {
                 for (int j = 0; j < fh.width; j++) {
@@ -64,31 +68,50 @@ IpvcPlayer::IpvcPlayer(QString inputfile) {
 
         } else if (type == 122) {
 
-            std::cout << "Move" << std::endl;
+            std::cerr << "Move" << std::endl;
             ipvc_frame_header_read_t ff;
 
             fread(&ff, 1, sizeof (ipvc_frame_header_read_t), ipvc_file);
-            std::cout << "blocks " << ff.blocks << std::endl;
-            std::cout << "moves " << ff.block_moves << std::endl;
+            std::cerr << "blocks " << ff.blocks << std::endl;
+            std::cerr << "moves " << ff.block_moves << std::endl;
+
+            if (!common_header_read) {
+                fread(&common_header_size, 1, sizeof(ushort), ipvc_file);
+                uchar headbuff[common_header_size];
+
+                fread(headbuff,1,(size_t)common_header_size,ipvc_file);
+                for (int i=0;i<(int)common_header_size;i++) {
+                    bheader.push_back(headbuff[i]);
+                }
+
+                common_header_read=true;
+            }
 
             for (ushort bb = 0; bb < ff.blocks; bb++) {
+
                 ipvc_block_read_t bbc;
                 fread(&bbc, 1, sizeof (ipvc_block_read_t), ipvc_file);
 
                 unsigned h = (bbc.block_id / block_w) * fh.block_size;
                 unsigned w = (bbc.block_id % block_w) * fh.block_size;
 
-                std::cout<<h<<" "<<w<<std::endl;
                 if (h>fh.height ||w>fh.width){
                     break;
                 }
-
                 uchar jpegbuff[bbc.block_size];
-                fread(&jpegbuff, 1, bbc.block_size, ipvc_file);
+
+                int jpeg_wr=0;
+                for (jpeg_wr=0;jpeg_wr<(int)common_header_size;jpeg_wr++) {
+                    jpegbuff[jpeg_wr]=bheader[jpeg_wr];
+                }
+                jpegbuff[jpeg_wr++]=255;
+                jpegbuff[jpeg_wr++]=218;
+                fread(jpegbuff+jpeg_wr, 1, bbc.block_size - bheader.size() - 2, ipvc_file);
                 vector<uchar> vdata(jpegbuff,jpegbuff + bbc.block_size);
 
+
                 Mat m_buff= imdecode(Mat(vdata),1);
-                cout<<m_buff.rows<< " "<<m_buff.cols<<endl;
+
                 for (int i = 0; i < fh.block_size; i++) {
                     for (int j = 0; j < fh.block_size; j++) {
 
@@ -156,6 +179,6 @@ IpvcPlayer::IpvcPlayer(QString inputfile) {
 
     }
 
-    std::cout << "Decoding Done" << std::endl;
+    std::cerr << "Decoding Done" << std::endl;
     destroyWindow("Output");
 }

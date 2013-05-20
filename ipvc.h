@@ -1,6 +1,7 @@
 #ifndef IPVC_H
 #define IPVC_H
 
+// use block sizes <140
 #define BLOCK_SIZE 20
 
 #include <opencv2/core/core.hpp>
@@ -21,11 +22,14 @@ struct __attribute__((packed)) ipvc_frame_full_header_t {
 
 struct __attribute__((packed)) ipvc_frame_header_t {
     uchar frame_type; // 122: blocks
+    // there will be
+    // ushort block_header_size;
+    // uchar block_header_data[];
+    // here on the first block thats being read
     unsigned frame_id;
     ushort blocks;
     ushort block_moves;
 };
-
 struct __attribute__((packed)) ipvc_frame_full_header_read_t {
     unsigned frame_size;
 };
