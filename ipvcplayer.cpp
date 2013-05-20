@@ -10,8 +10,10 @@ using namespace cv;
 using namespace std;
 
 IpvcPlayer::IpvcPlayer(QString inputfile) {
+    unsigned frame=0;
     unsigned block_w, block_h;
     namedWindow("Output", CV_WINDOW_AUTOSIZE);
+
     ipvc_file_header_t fh;
     FILE *ipvc_file = fopen(inputfile.toStdString().c_str(), "r");
     fread(&fh, 1, sizeof (ipvc_file_header_t), ipvc_file);
@@ -27,22 +29,38 @@ IpvcPlayer::IpvcPlayer(QString inputfile) {
     block_w = fh.width / fh.block_size;
 
     uchar type;
+    unsigned fid;
+    output = Mat::zeros(output.size(),CV_8UC4);
     while (!feof(ipvc_file)) {
         fread(&type, 1, sizeof (uchar), ipvc_file);
+        fread(&fid, 1, sizeof (unsigned), ipvc_file);
+        while (frame<fid) {
+            waitKey(1000/fh.rate);
+            frame++;
+        }
 
         if (type == 126) {
-            unsigned id;
-            fread(&id, 1, sizeof (unsigned), ipvc_file);
+            ipvc_frame_full_header_read_t fhx;
+            fread(&fhx, 1, sizeof (ipvc_frame_full_header_read_t), ipvc_file);
+
+            uchar jpegbuff[fhx.frame_size];
+            fread(&jpegbuff, 1, fhx.frame_size, ipvc_file);
+            vector<uchar> vdata(jpegbuff,jpegbuff + fhx.frame_size);
+
+            Mat m_buff= imdecode(Mat(vdata),1);
             std::cout << "Full frame" << std::endl;
-            printf("%x", id);
+
             for (int i = 0; i < fh.height; i++) {
                 for (int j = 0; j < fh.width; j++) {
-                    uchar rgb[3];
-                    fread(&rgb, 1, 3, ipvc_file);
-                    output.at<Vec4b > (i, j) = Vec4b(rgb[0], rgb[1], rgb[2],255);
+                    //uchar rgb[3];
+                    //fread(&rgb, 1, 3, ipvc_file);
+                    Vec3b vv= m_buff.at<Vec3b>(i,j);
+                    output.at<Vec4b> (i, j)[0] = vv[0]; //Vec4b(rgb[0], rgb[1], rgb[2],255);
+                    output.at<Vec4b> (i, j)[1] = vv[1];
+                    output.at<Vec4b> (i, j)[2] = vv[2];
+                    output.at<Vec4b> (i, j)[3] = 255;
                 }
             }
-
 
         } else if (type == 122) {
 
@@ -50,7 +68,6 @@ IpvcPlayer::IpvcPlayer(QString inputfile) {
             ipvc_frame_header_read_t ff;
 
             fread(&ff, 1, sizeof (ipvc_frame_header_read_t), ipvc_file);
-            std::cout << "frame " << ff.frame_id << std::endl;
             std::cout << "blocks " << ff.blocks << std::endl;
             std::cout << "moves " << ff.block_moves << std::endl;
 
@@ -126,8 +143,8 @@ IpvcPlayer::IpvcPlayer(QString inputfile) {
 
             }
         }
-        waitKey(1000/fh.rate);
         imshow("Output", output);
+
     }
 
     std::cout << "Decoding Done" << std::endl;

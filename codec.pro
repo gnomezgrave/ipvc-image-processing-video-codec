@@ -8,7 +8,8 @@ greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 SOURCES += main.cpp \
     ipvcplayer.cpp \
     ipvcmain.cpp \
-    ipvcencoder.cpp
+    ipvcencoder.cpp \
+    phasecorr.cpp
 
 QMAKE_CXXFLAGS += -O3
 win32{

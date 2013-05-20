@@ -38,7 +38,7 @@ void IpvcMain::on_btnEncoder_clicked()
 }
 void IpvcMain::on_btnExit_clicked()
 {
-
+    exit(0);
 }
 IpvcMain::~IpvcMain()
 {

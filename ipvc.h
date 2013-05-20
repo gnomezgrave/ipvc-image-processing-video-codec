@@ -16,6 +16,7 @@ struct __attribute__((packed)) ipvc_file_header_t {
 struct __attribute__((packed)) ipvc_frame_full_header_t {
     uchar frame_type; // 126: full frame
     unsigned frame_id;
+    unsigned frame_size;
 };
 
 struct __attribute__((packed)) ipvc_frame_header_t {
@@ -26,11 +27,10 @@ struct __attribute__((packed)) ipvc_frame_header_t {
 };
 
 struct __attribute__((packed)) ipvc_frame_full_header_read_t {
-    unsigned frame_id;
+    unsigned frame_size;
 };
 
 struct __attribute__((packed)) ipvc_frame_header_read_t {
-    unsigned frame_id;
     ushort blocks;
     ushort block_moves;
 };
@@ -45,5 +45,9 @@ struct __attribute__((packed)) ipvc_block_move_t {
     float move_h;
     float move_w;
 };
+
+namespace cv{
+Point2d phaseCorrelateX(InputArray _src1, InputArray _src2);
+}
 
 #endif // IPVC_H

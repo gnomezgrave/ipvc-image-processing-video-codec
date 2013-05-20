@@ -65,7 +65,7 @@ IpvcEncoder::IpvcEncoder(IpvcMain* parent,QString inputfile, QString outputfile)
     namedWindow("Original_Video", CV_WINDOW_AUTOSIZE);
     namedWindow("Overlay_Video", CV_WINDOW_AUTOSIZE);
     namedWindow("Output_Video", CV_WINDOW_AUTOSIZE);
-
+    namedWindow("jj", CV_WINDOW_AUTOSIZE);
 
     VideoCapture capture;
     capture.open(inputfile.toStdString());
@@ -111,6 +111,8 @@ IpvcEncoder::IpvcEncoder(IpvcMain* parent,QString inputfile, QString outputfile)
     Mat m_temp[blocks_h][blocks_w];
 
     Mat m_translate[blocks_h][blocks_w];
+
+    Mat m_block(BLOCK_SIZE,BLOCK_SIZE,CV_8UC3);
 
     for (unsigned i = 0; i < blocks_h; i++) {
         for (unsigned j = 0; j < blocks_w; j++) {
@@ -169,7 +171,7 @@ IpvcEncoder::IpvcEncoder(IpvcMain* parent,QString inputfile, QString outputfile)
     fh.height = height;
     fh.width = width;
     fh.block_size = BLOCK_SIZE;
-    fh.rate = 30;
+    fh.rate = (uchar)((unsigned)capture.get(CV_CAP_PROP_FPS));
     fwrite(&fh, 1, sizeof (ipvc_file_header_t), ipvc_file);
     double size = height*width*3*fh.rate;
     int count=0;
@@ -210,13 +212,21 @@ IpvcEncoder::IpvcEncoder(IpvcMain* parent,QString inputfile, QString outputfile)
         if (p_diff > 0.8f) {
             // full frame
             ipvc_frame_full_header_t frh;
+
+            vector<uchar> ff;
+            imencode(".jpg",*image,ff);
             frh.frame_type = 126;
             frh.frame_id = current_frame;
+            frh.frame_size = (unsigned)ff.size();
             fwrite(&frh, 1, sizeof (ipvc_frame_full_header_t), ipvc_file);
 
             image->copyTo(m_output);
             image->copyTo(*previmage);
-            unsigned char dd[3];
+
+            fwrite((uchar *)ff.data(),1,ff.size(),ipvc_file);
+            cout<<total_size<<" "<<ff.size()<<endl;
+
+           /* unsigned char dd[3];
             for (int a = 0; a < height; a++) {
                 for (int b = 0; b < width; b++) {
                     Vec3b ff = m_output.at<Vec3b > (a, b);
@@ -225,9 +235,10 @@ IpvcEncoder::IpvcEncoder(IpvcMain* parent,QString inputfile, QString outputfile)
                     dd[2] = ff[2];
                     fwrite(dd, 1, 3, ipvc_file);
                 }
-            }
+            }*/
             cout << "full" << endl;
         }
+
         for (unsigned i = 0; i < blocks_h; i++) {
             for (unsigned j = 0; j < blocks_w; j++) {
                 bool changed = false;
@@ -252,7 +263,7 @@ IpvcEncoder::IpvcEncoder(IpvcMain* parent,QString inputfile, QString outputfile)
 
                 Point2d pc(0, 0);
                 double d = 0;
-               // pc=phaseCorrelate(prevgreys_f[ARR2D(blocks_w,i,j)],greys_f[ARR2D(blocks_w,i,j)]);
+                pc=phaseCorrelateX(prevgreys_f[ARR2D(blocks_w,i,j)],greys_f[ARR2D(blocks_w,i,j)]);
 
                 unsigned correct = 0;
                 unsigned complexity = 0;
@@ -341,7 +352,6 @@ IpvcEncoder::IpvcEncoder(IpvcMain* parent,QString inputfile, QString outputfile)
                     if (differences > 8) {
                         ipvc_block_t block;
                         block.block_id = ARR2D(blocks_w, i, j);
-                                    std::cout<<block.block_id<<std::endl;
                         for (int a = 0; a < BLOCK_SIZE; a++) {
                             for (int b = 0; b < BLOCK_SIZE; b++) {
                                 int h = i*BLOCK_SIZE;
@@ -437,7 +447,7 @@ IpvcEncoder::IpvcEncoder(IpvcMain* parent,QString inputfile, QString outputfile)
             prevgreys_f = &m_output_greys_f2[0][0];
         }
     }
- //   cout << total_size << endl;
+    cout << "Encoding finished" << endl;
     fflush(ipvc_file);
     fclose(ipvc_file);
     destroyWindow("Original_Video");
