@@ -27,3 +27,6 @@ HEADERS += \
 
 FORMS += \
     ipvcmain.ui
+
+RESOURCES += \
+    res.qrc

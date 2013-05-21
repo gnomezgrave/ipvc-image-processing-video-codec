@@ -4,6 +4,7 @@
 #include "ui_ipvcmain.h"
 #include "ipvc.h"
 #include <QtGui>
+#include <QIcon>
 
 #define MARGIN 10
 #define CHART_HEIGHT 200
@@ -12,6 +13,7 @@ IpvcMain::IpvcMain(QWidget *parent) :
     QDialog(parent),
     ui(new Ui::IpvcMain)
 {
+    this->setWindowIcon(QIcon(":icon/res/Icon.ico"));
     ui->setupUi(this);
     time=0;
 
