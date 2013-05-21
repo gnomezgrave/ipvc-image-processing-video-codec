@@ -36,9 +36,10 @@ IpvcPlayer::IpvcPlayer(QString inputfile) {
     unsigned fid;
     output = Mat::zeros(output.size(),CV_8UC4);
 
-    while (!feof(ipvc_file)) {
-        fread(&type, 1, sizeof (uchar), ipvc_file);
+    while (fread(&type, 1, sizeof (uchar), ipvc_file) > 0) {
+
         fread(&fid, 1, sizeof (unsigned), ipvc_file);
+
         while (frame<fid) {
             waitKey(1000/fh.rate);
             frame++;
@@ -73,12 +74,7 @@ IpvcPlayer::IpvcPlayer(QString inputfile) {
             ipvc_frame_header_read_t ff;
 
             fread(&ff, 1, sizeof (ipvc_frame_header_read_t), ipvc_file);
-            //cerr <<  "sdf"<<readff <<endl;
-            //cerr << "blocks " << ff.blocks << std::endl;
-            //cerr << "moves " << ff.block_moves << std::endl;
 
-
-            //cout<<" ss"<<ff.blocks<<endl;
             if (!common_header_read) {
                 ipvc_block_header_read_t hb;
 
@@ -97,7 +93,6 @@ IpvcPlayer::IpvcPlayer(QString inputfile) {
 
                 ipvc_block_read_t bbc;
                 fread(&bbc, 1, sizeof (ipvc_block_read_t), ipvc_file);
-                //cout<<endl;
 
                 unsigned h = (bbc.block_id / block_w) * fh.block_size;
                 unsigned w = (bbc.block_id % block_w) * fh.block_size;
@@ -117,12 +112,11 @@ IpvcPlayer::IpvcPlayer(QString inputfile) {
                 cout<< " " <<endl;
                 vector<uchar> vdata(jpegbuff,jpegbuff + bbc.block_size);
 
-
                 Mat m_buff= imdecode(Mat(vdata),1);
-                //cout<<m_buff.rows<<" "<<m_buff.cols<<" "<<bbc.block_id<<endl;
 
-                for (int i = 0; i < m_buff.rows; i++) {
-                    for (int j = 0; j < m_buff.cols; j++) {
+
+                for (int i = 0; i < fh.block_size; i++) {
+                    for (int j = 0; j < fh.block_size; j++) {
                         output.at<Vec4b > (h+i, w+j) [0] = m_buff.at<Vec3b>(i,j)[0];
                         output.at<Vec4b > (h+i, w+j) [1] = m_buff.at<Vec3b>(i,j)[1];
                         output.at<Vec4b > (h+i, w+j) [2] = m_buff.at<Vec3b>(i,j)[2];

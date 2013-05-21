@@ -177,9 +177,9 @@ IpvcEncoder::IpvcEncoder(IpvcMain* parent,QString inputfile, QString outputfile)
                 Vec3b is = frame.at<Vec3b > (i, j);
                 image->at<Vec3b > (i, j) = is;
                 Vec3b ps = previmage->at<Vec3b > (i, j);
-                if (abs(is[0] - ps[0]) > 5 &&
-                        abs(is[1] - ps[1]) > 5 &&
-                        abs(is[2] - ps[2]) > 5) {
+                if ((abs(is[0] - ps[0]) > 5) &&
+                        (abs(is[1] - ps[1]) > 5) &&
+                        (abs(is[2] - ps[2]) > 5)) {
                     frame_differences++;
                 }
             }
@@ -314,7 +314,7 @@ IpvcEncoder::IpvcEncoder(IpvcMain* parent,QString inputfile, QString outputfile)
 
                         }
                     }
-                    if (differences >8) {
+                    if (differences >0) {
                         ipvc_block_t block;
                         block.block_id = ARR2D(blocks_w, i, j);
                         for (int a = 0; a < BLOCK_SIZE; a++) {
@@ -330,7 +330,7 @@ IpvcEncoder::IpvcEncoder(IpvcMain* parent,QString inputfile, QString outputfile)
                         vector<uchar> ff;
                         vector<uchar> noheader;
                         imencode(".jpg",m_block,ff);
-                        //return;
+
                         block.block_size = ff.size();
 
                         if (bheader.size()==0) {
@@ -394,15 +394,17 @@ IpvcEncoder::IpvcEncoder(IpvcMain* parent,QString inputfile, QString outputfile)
             ipvc_frame_header_t frh;
             frh.frame_type = 122;
             frh.frame_id = current_frame;
-            frh.blocks = (ushort)l_blocks.size();
-            //cout<<frh.blocks<<" "<<frh.frame_id<<endl;
-            frh.block_moves = (ushort)l_block_moves.size();
+            frh.blocks = l_blocks.size();
+
+            frh.block_moves = l_block_moves.size();
+            cout<<frh.blocks<<" "<<frh.frame_id<<" "<<frh.block_moves<<endl;
             fwrite(&frh, 1, sizeof (ipvc_frame_header_t), ipvc_file);
 
             if (!l_blocks.empty()) {
                 if (!common_header_written) {
                     ipvc_block_header_read_t hb;
                     hb.block_header_size=(ushort)bheader.size();
+                    cout<<hb.block_header_size;
 //                    cout<<"block header";
                       fwrite(&hb,1,sizeof(ipvc_block_header_read_t), ipvc_file);
 //                    cout<<" ";
