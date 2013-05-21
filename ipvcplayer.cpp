@@ -6,6 +6,7 @@
 
 #define TBORDER 10
 #define T2BORDER (TBORDER/2)
+
 using namespace cv;
 using namespace std;
 
@@ -52,7 +53,7 @@ IpvcPlayer::IpvcPlayer(QString inputfile) {
             vector<uchar> vdata(jpegbuff,jpegbuff + fhx.frame_size);
 
             Mat m_buff= imdecode(Mat(vdata),1);
-            std::cerr << "Full frame" << std::endl;
+            //std::cerr << "Full frame" << std::endl;
 
             for (int i = 0; i < fh.height; i++) {
                 for (int j = 0; j < fh.width; j++) {
@@ -68,15 +69,21 @@ IpvcPlayer::IpvcPlayer(QString inputfile) {
 
         } else if (type == 122) {
 
-            std::cerr << "Move" << std::endl;
+            //cerr << "Move" << std::endl;
             ipvc_frame_header_read_t ff;
 
             fread(&ff, 1, sizeof (ipvc_frame_header_read_t), ipvc_file);
-            std::cerr << "blocks " << ff.blocks << std::endl;
-            std::cerr << "moves " << ff.block_moves << std::endl;
+            //cerr <<  "sdf"<<readff <<endl;
+            //cerr << "blocks " << ff.blocks << std::endl;
+            //cerr << "moves " << ff.block_moves << std::endl;
 
+
+            //cout<<" ss"<<ff.blocks<<endl;
             if (!common_header_read) {
-                fread(&common_header_size, 1, sizeof(ushort), ipvc_file);
+                ipvc_block_header_read_t hb;
+
+                fread(&hb, 1, sizeof(ipvc_block_header_read_t), ipvc_file);
+                common_header_size=hb.block_header_size;
                 uchar headbuff[common_header_size];
 
                 fread(headbuff,1,(size_t)common_header_size,ipvc_file);
@@ -86,11 +93,11 @@ IpvcPlayer::IpvcPlayer(QString inputfile) {
 
                 common_header_read=true;
             }
-
             for (ushort bb = 0; bb < ff.blocks; bb++) {
 
                 ipvc_block_read_t bbc;
                 fread(&bbc, 1, sizeof (ipvc_block_read_t), ipvc_file);
+                //cout<<endl;
 
                 unsigned h = (bbc.block_id / block_w) * fh.block_size;
                 unsigned w = (bbc.block_id % block_w) * fh.block_size;
@@ -106,15 +113,16 @@ IpvcPlayer::IpvcPlayer(QString inputfile) {
                 }
                 jpegbuff[jpeg_wr++]=255;
                 jpegbuff[jpeg_wr++]=218;
-                fread(jpegbuff+jpeg_wr, 1, bbc.block_size - bheader.size() - 2, ipvc_file);
+                cout<< fread(jpegbuff+jpeg_wr, 1, bbc.block_size - bheader.size() - 2, ipvc_file);
+                cout<< " " <<endl;
                 vector<uchar> vdata(jpegbuff,jpegbuff + bbc.block_size);
 
 
                 Mat m_buff= imdecode(Mat(vdata),1);
+                //cout<<m_buff.rows<<" "<<m_buff.cols<<" "<<bbc.block_id<<endl;
 
-                for (int i = 0; i < fh.block_size; i++) {
-                    for (int j = 0; j < fh.block_size; j++) {
-
+                for (int i = 0; i < m_buff.rows; i++) {
+                    for (int j = 0; j < m_buff.cols; j++) {
                         output.at<Vec4b > (h+i, w+j) [0] = m_buff.at<Vec3b>(i,j)[0];
                         output.at<Vec4b > (h+i, w+j) [1] = m_buff.at<Vec3b>(i,j)[1];
                         output.at<Vec4b > (h+i, w+j) [2] = m_buff.at<Vec3b>(i,j)[2];
@@ -146,7 +154,6 @@ IpvcPlayer::IpvcPlayer(QString inputfile) {
                         block.at<Vec4b>(i+T2BORDER,j+T2BORDER)=output.at<Vec4b>(hh+i,ww+j);
                     }
                 }
-
 
                 srcTri[0] = Point2f( T2BORDER , T2BORDER);
                 srcTri[1] = Point2f( T2BORDER, T2BORDER+ fh.block_size);

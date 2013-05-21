@@ -5,35 +5,19 @@
 #include <cstdio>
 #include <cmath>
 #include <stdint.h>
-#include "ipvc.h"
 #include <opencv2/highgui/highgui.hpp>
 
 #include "ipvcmain.h"
-
-#define OUT_FILE argv[2]
+#include "ipvc.h"
 
 #define PIXEL(jump, bigj, smallj) (((jump)*(bigj) + (smallj))*3)
 #define ARR2D(jump, bigj, smallj) (((jump)*(bigj) + (smallj)))
 
 #define AVG(a,b,c) (((a)+(b)+(c))/3.0)
-
+//#define fwrite(ptr, size, elems, file) cout<<elems<<" ";
 enum ipvc_modified_by_t {
     IPVC_DIFF, IPVC_PC
 };
-/* COMPRESSION SETTINGS */
-
-/* analogous to xz CLI options: -0 to -9 */
-#define COMPRESSION_LEVEL 0
-
-/* boolean setting, analogous to xz CLI option: -e */
-#define COMPRESSION_EXTREME false
-
-/* see: /usr/include/lzma/check.h LZMA_CHECK_* */
-#define INTEGRITY_CHECK LZMA_CHECK_NONE
-
-/* read/write buffer sizes */
-#define IN_BUF_MAX	4096
-#define OUT_BUF_MAX	4096
 
 using namespace cv;
 using namespace std;
@@ -46,6 +30,7 @@ int blurmask3[3][3] = {
     { 1, 2, 1}
 };
 
+
 IpvcEncoder::IpvcEncoder(IpvcMain* parent,QString inputfile, QString outputfile) {
 
     list<ipvc_block_move_t> l_block_moves;
@@ -55,12 +40,9 @@ IpvcEncoder::IpvcEncoder(IpvcMain* parent,QString inputfile, QString outputfile)
     l_blocks.clear();
 
     char press = -1;
-    // number between 0 and 1, can't be 0
-    float quality = 0.1f;
     bool common_header_written=false;
     ushort common_header_size=0;
     vector<uchar> bheader;
-    unsigned changes;
     unsigned current_frame = 0;
 
     FILE *ipvc_file = fopen(outputfile.toStdString().c_str(), "w");
@@ -139,9 +121,9 @@ IpvcEncoder::IpvcEncoder(IpvcMain* parent,QString inputfile, QString outputfile)
 
 
 
-    Mat *ffts, *prevffts, *greys_f, *prevgreys_f;
+    Mat *greys_f, *prevgreys_f;
 
-    Mat *image = NULL, *previmage = NULL, *blurred, *changed, *prevchanged;
+    Mat *image = NULL, *previmage = NULL;
     Mat *output;
 
     image = &m_image1;
@@ -151,8 +133,6 @@ IpvcEncoder::IpvcEncoder(IpvcMain* parent,QString inputfile, QString outputfile)
     greys_f = &m_output_greys_f1[0][0];
     prevgreys_f = &m_output_greys_f2[0][0];
 
-    //in_buf = (uint8_t *) m_output.data;
-    // out_buf = (uint8_t *) malloc(height*width*sizeof(uchar)*3);
 
     for (unsigned i = 0; i < height; i++) {
         for (unsigned j = 0; j < width; j++) {
@@ -167,15 +147,13 @@ IpvcEncoder::IpvcEncoder(IpvcMain* parent,QString inputfile, QString outputfile)
         }
     }
 
-    //initialize xz encoder
-
     ipvc_file_header_t fh;
     fh.height = height;
     fh.width = width;
     fh.block_size = BLOCK_SIZE;
     fh.rate = 25;
     fwrite(&fh, 1, sizeof (ipvc_file_header_t), ipvc_file);
-    double size = height*width*3*fh.rate;
+
     int count=0;
     for (unsigned i = 0; i < blocks_h; i++) {
         for (unsigned j = 0; j < blocks_w; j++) {
@@ -184,7 +162,6 @@ IpvcEncoder::IpvcEncoder(IpvcMain* parent,QString inputfile, QString outputfile)
                     m_temp[i][j].at<Vec3b > (a, b) = frame.at<Vec3b > (BLOCK_SIZE * i + a, BLOCK_SIZE * j + b);
                 }
             }
-
         }
     }
 
@@ -192,9 +169,7 @@ IpvcEncoder::IpvcEncoder(IpvcMain* parent,QString inputfile, QString outputfile)
     frame.copyTo(m_output);
     current_frame = 2;
     while (!frame.empty() && press == -1) {
-
         unsigned frame_differences = 0;
-        //m_output = Mat::zeros(height, width, CV_8UC3);
         m_output_overlay = Mat::zeros(height, width, CV_8UC3);
         for (unsigned i = 0; i < height; i++) {
             for (unsigned j = 0; j < width; j++) {
@@ -225,9 +200,9 @@ IpvcEncoder::IpvcEncoder(IpvcMain* parent,QString inputfile, QString outputfile)
             image->copyTo(*previmage);
 
             fwrite((uchar *)ff.data(),1,ff.size(),ipvc_file);
-            cerr<<total_size<<" "<<ff.size()<<endl;
+            //cerr<<total_size<<" "<<ff.size()<<endl;
 
-            cerr << "full" << endl;
+//            cerr << "full" << endl;
         }
 
         for (unsigned i = 0; i < blocks_h; i++) {
@@ -253,7 +228,6 @@ IpvcEncoder::IpvcEncoder(IpvcMain* parent,QString inputfile, QString outputfile)
                 }
 
                 Point2d pc(0, 0);
-                double d = 0;
                 pc=phaseCorrelateX(prevgreys_f[ARR2D(blocks_w,i,j)],greys_f[ARR2D(blocks_w,i,j)]);
 
                 unsigned correct = 0;
@@ -266,9 +240,9 @@ IpvcEncoder::IpvcEncoder(IpvcMain* parent,QString inputfile, QString outputfile)
                         for (int b = 0; b < BLOCK_SIZE; b++) {
                             int h = BLOCK_SIZE * i + a + (int) pc.x;
                             int w = BLOCK_SIZE * j + b + (int) pc.y;
-                            if (h < 0 || h >= height || w < 0 || w >= width)
+                            if (h < 0 || h >= height || w < 0 || w >= width){
                                 edge = true;
-                            else {
+                            } else {
                                 Vec3b pp = image->at<Vec3b > (h, w);
                                 Vec3b ii = output->at<Vec3b > (h, w);
                                 if (abs(pp[0] - ii[0]) < differences_frame * 38 / (BLOCK_SIZE * BLOCK_SIZE) &&
@@ -362,7 +336,6 @@ IpvcEncoder::IpvcEncoder(IpvcMain* parent,QString inputfile, QString outputfile)
                         if (bheader.size()==0) {
                             for (int i=0;i<ff.size()-2;i++){
                                 if (ff[i]==255 && ff[i+1]==218) {
-                                    cerr<<i<<endl;
                                     common_header_size=i;
                                     break;
                                 } else {
@@ -404,7 +377,6 @@ IpvcEncoder::IpvcEncoder(IpvcMain* parent,QString inputfile, QString outputfile)
                                 m_output_overlay.at<Vec3b > (i * BLOCK_SIZE + a, j * BLOCK_SIZE + b) = Vec3b(250, 0, 0);
                             }
                         }
-
                     } else {
                         for (int a = 0; a < BLOCK_SIZE; a++) { //yellow
                             for (int b = 0; b < BLOCK_SIZE; b++) {
@@ -412,9 +384,7 @@ IpvcEncoder::IpvcEncoder(IpvcMain* parent,QString inputfile, QString outputfile)
                             }
                         }
                     }
-
                 }
-
             }
         }
 
@@ -424,16 +394,20 @@ IpvcEncoder::IpvcEncoder(IpvcMain* parent,QString inputfile, QString outputfile)
             ipvc_frame_header_t frh;
             frh.frame_type = 122;
             frh.frame_id = current_frame;
-            frh.blocks = l_blocks.size();
-            frh.block_moves = l_block_moves.size();
+            frh.blocks = (ushort)l_blocks.size();
+            //cout<<frh.blocks<<" "<<frh.frame_id<<endl;
+            frh.block_moves = (ushort)l_block_moves.size();
             fwrite(&frh, 1, sizeof (ipvc_frame_header_t), ipvc_file);
 
             if (!l_blocks.empty()) {
                 if (!common_header_written) {
-
-                    ushort header_size=(ushort)((unsigned)bheader.size());
-                    fwrite(&header_size,1,sizeof(ushort), ipvc_file);
-                    fwrite((uchar*)bheader.data(),1,bheader.size(),ipvc_file);
+                    ipvc_block_header_read_t hb;
+                    hb.block_header_size=(ushort)bheader.size();
+//                    cout<<"block header";
+                      fwrite(&hb,1,sizeof(ipvc_block_header_read_t), ipvc_file);
+//                    cout<<" ";
+                      fwrite((uchar*)bheader.data(),1,bheader.size(),ipvc_file);
+//                    cout<<endl;
                     common_header_written=true;
                 }
 
@@ -443,27 +417,31 @@ IpvcEncoder::IpvcEncoder(IpvcMain* parent,QString inputfile, QString outputfile)
                     ipvc_block_read_t br;
                     br.block_id = bb.block_id;
                     br.block_size = bb.block_size;
-
+                    //cout<<"block write";
                     fwrite(&br, 1, sizeof (ipvc_block_read_t), ipvc_file);
+                    //cout<<" ";
                     fwrite((uchar*)bb.data.data(), 1, bb.data.size(), ipvc_file);
-
+                   // cout<<endl;
                 }
             }
             if (!l_block_moves.empty()) {
                 for (list<ipvc_block_move_t>::iterator it = l_block_moves.begin(); it != l_block_moves.end(); it++) {
                     ipvc_block_move_t bm = *it;
-
+                    //cout<<"block move";
                     fwrite(&bm, 1, sizeof (ipvc_block_move_t), ipvc_file);
+                    //cout<<endl;
                 }
             }
             l_blocks.clear();
             l_block_moves.clear();
         }
         addWeighted(m_output, 1.0, m_output_overlay, 0.7, 0.0, m_final);
-        if(parent->getIfOriginalVideoShown())   imshow("Original_Video", frame);
-        if(parent->getIfOutputVideoShown())     imshow("Overlay_Video", m_output);
-        if(parent->getIfOverlayVideoShown())    imshow("Output_Video", m_final);
-        parent->setPercentage(size*(count++),outputfile);
+        if(parent->getIfOriginalVideoShown())
+            imshow("Original_Video", frame);
+        if(parent->getIfOutputVideoShown())
+            imshow("Overlay_Video", m_output);
+        if(parent->getIfOverlayVideoShown())
+            imshow("Output_Video", m_final);
 
         press = waitKey(1);
 
@@ -485,6 +463,7 @@ IpvcEncoder::IpvcEncoder(IpvcMain* parent,QString inputfile, QString outputfile)
     cerr << "Encoding finished" << endl;
     fflush(ipvc_file);
     fclose(ipvc_file);
+
     destroyWindow("Original_Video");
     destroyWindow("Overlay_Video");
     destroyWindow("Output_Video");
