@@ -108,8 +108,8 @@ IpvcPlayer::IpvcPlayer(QString inputfile) {
                 }
                 jpegbuff[jpeg_wr++]=255;
                 jpegbuff[jpeg_wr++]=218;
-                cout<< fread(jpegbuff+jpeg_wr, 1, bbc.block_size - bheader.size() - 2, ipvc_file);
-                cout<< " " <<endl;
+                fread(jpegbuff+jpeg_wr, 1, bbc.block_size - bheader.size() - 2, ipvc_file);
+
                 vector<uchar> vdata(jpegbuff,jpegbuff + bbc.block_size);
 
                 Mat m_buff= imdecode(Mat(vdata),1);

@@ -39,6 +39,8 @@ IpvcEncoder::IpvcEncoder(IpvcMain* parent,QString inputfile, QString outputfile)
     l_block_moves.clear();
     l_blocks.clear();
 
+    frameSize=frameSizeWithoutJpeg=0;
+
     char press = -1;
     bool common_header_written=false;
     ushort common_header_size=0;
@@ -47,9 +49,11 @@ IpvcEncoder::IpvcEncoder(IpvcMain* parent,QString inputfile, QString outputfile)
 
     FILE *ipvc_file = fopen(outputfile.toStdString().c_str(), "w");
 
-    namedWindow("Original_Video", CV_WINDOW_AUTOSIZE);
-    namedWindow("Overlay_Video", CV_WINDOW_AUTOSIZE);
-    namedWindow("Output_Video", CV_WINDOW_AUTOSIZE);
+    if(!parent->getChartState()){
+       namedWindow("Original_Video", CV_WINDOW_AUTOSIZE);
+       namedWindow("Overlay_Video", CV_WINDOW_AUTOSIZE);
+       namedWindow("Output_Video", CV_WINDOW_AUTOSIZE);
+    }
 
     VideoCapture capture;
     capture.open(inputfile.toStdString());
@@ -64,7 +68,7 @@ IpvcEncoder::IpvcEncoder(IpvcMain* parent,QString inputfile, QString outputfile)
     unsigned width = frame.cols;
     unsigned total = height*width;
     unsigned total_size = total * 3;
-    float ftotal = total * 1.0f;
+    float ftotal = total_size * 1.0f;
 
     unsigned blocks_h = height / BLOCK_SIZE;
     unsigned blocks_w = width / BLOCK_SIZE;
@@ -195,11 +199,14 @@ IpvcEncoder::IpvcEncoder(IpvcMain* parent,QString inputfile, QString outputfile)
             frh.frame_id = current_frame;
             frh.frame_size = (unsigned)ff.size();
             fwrite(&frh, 1, sizeof (ipvc_frame_full_header_t), ipvc_file);
+            frameSize+=sizeof(frh);
 
             image->copyTo(m_output);
             image->copyTo(*previmage);
 
             fwrite((uchar *)ff.data(),1,ff.size(),ipvc_file);
+            frameSize+=ff.size();
+            frameSizeWithoutJpeg+=sizeof(frh)+total_size;
             //cerr<<total_size<<" "<<ff.size()<<endl;
 
 //            cerr << "full" << endl;
@@ -397,18 +404,21 @@ IpvcEncoder::IpvcEncoder(IpvcMain* parent,QString inputfile, QString outputfile)
             frh.blocks = l_blocks.size();
 
             frh.block_moves = l_block_moves.size();
-            cout<<frh.blocks<<" "<<frh.frame_id<<" "<<frh.block_moves<<endl;
+            //cout<<frh.blocks<<" "<<frh.frame_id<<" "<<frh.block_moves<<endl;
             fwrite(&frh, 1, sizeof (ipvc_frame_header_t), ipvc_file);
-
+            frameSizeWithoutJpeg+=sizeof(frh);
+            frameSize+=sizeof(frh);
             if (!l_blocks.empty()) {
                 if (!common_header_written) {
                     ipvc_block_header_read_t hb;
                     hb.block_header_size=(ushort)bheader.size();
-                    cout<<hb.block_header_size;
+                    //cout<<hb.block_header_size;
 //                    cout<<"block header";
                       fwrite(&hb,1,sizeof(ipvc_block_header_read_t), ipvc_file);
+                      frameSize+=sizeof(ipvc_block_header_read_t);
 //                    cout<<" ";
                       fwrite((uchar*)bheader.data(),1,bheader.size(),ipvc_file);
+                      frameSize+=bheader.size();
 //                    cout<<endl;
                     common_header_written=true;
                 }
@@ -423,6 +433,9 @@ IpvcEncoder::IpvcEncoder(IpvcMain* parent,QString inputfile, QString outputfile)
                     fwrite(&br, 1, sizeof (ipvc_block_read_t), ipvc_file);
                     //cout<<" ";
                     fwrite((uchar*)bb.data.data(), 1, bb.data.size(), ipvc_file);
+
+                    frameSizeWithoutJpeg+=sizeof (ipvc_block_read_t)+BLOCK_SIZE*BLOCK_SIZE*3;
+                    frameSize+=sizeof (ipvc_block_read_t)+bb.data.size();
                    // cout<<endl;
                 }
             }
@@ -431,6 +444,9 @@ IpvcEncoder::IpvcEncoder(IpvcMain* parent,QString inputfile, QString outputfile)
                     ipvc_block_move_t bm = *it;
                     //cout<<"block move";
                     fwrite(&bm, 1, sizeof (ipvc_block_move_t), ipvc_file);
+
+                    frameSizeWithoutJpeg+=sizeof (ipvc_block_move_t);
+                    frameSize+=sizeof (ipvc_block_move_t);
                     //cout<<endl;
                 }
             }
@@ -441,9 +457,9 @@ IpvcEncoder::IpvcEncoder(IpvcMain* parent,QString inputfile, QString outputfile)
         if(parent->getIfOriginalVideoShown())
             imshow("Original_Video", frame);
         if(parent->getIfOutputVideoShown())
-            imshow("Overlay_Video", m_output);
+            imshow("Overlay_Video", m_final);
         if(parent->getIfOverlayVideoShown())
-            imshow("Output_Video", m_final);
+            imshow("Output_Video", m_output);
 
         press = waitKey(1);
 
@@ -461,12 +477,18 @@ IpvcEncoder::IpvcEncoder(IpvcMain* parent,QString inputfile, QString outputfile)
             greys_f = &m_output_greys_f1[0][0];
             prevgreys_f = &m_output_greys_f2[0][0];
         }
+        parent->drawChart((frameSize/ftotal),frameSizeWithoutJpeg/ftotal);
+        parent->calcPercentage(ftotal,frameSize);
+
+        frameSizeWithoutJpeg=0;
+        frameSize=0;
     }
     cerr << "Encoding finished" << endl;
     fflush(ipvc_file);
     fclose(ipvc_file);
-
-    destroyWindow("Original_Video");
-    destroyWindow("Overlay_Video");
-    destroyWindow("Output_Video");
+    if(!parent->getChartState()){
+        destroyWindow("Original_Video");
+        destroyWindow("Overlay_Video");
+        destroyWindow("Output_Video");
+    }
 }

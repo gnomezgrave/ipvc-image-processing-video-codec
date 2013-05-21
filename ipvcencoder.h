@@ -5,6 +5,9 @@
 
 class IpvcEncoder
 {
+private:
+    int frameSize;
+    int frameSizeWithoutJpeg;
 public:
     IpvcEncoder(IpvcMain* parent,QString inputfile, QString outputfile);
 };

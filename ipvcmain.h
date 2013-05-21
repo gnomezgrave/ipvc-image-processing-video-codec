@@ -2,6 +2,7 @@
 #define IPVCMAIN_H
 
 #include <QDialog>
+#include <QGraphicsScene>
 
 namespace Ui {
 class IpvcMain;
@@ -14,6 +15,7 @@ class IpvcMain : public QDialog
 public:
     explicit IpvcMain(QWidget *parent = 0);
     ~IpvcMain();
+    void drawChart(qreal y, qreal wj);
 public slots:
     void on_btnPlayer_clicked();
     void on_btnEncoder_clicked();
@@ -21,9 +23,21 @@ public slots:
     bool getIfOriginalVideoShown();
     bool getIfOverlayVideoShown();
     bool getIfOutputVideoShown();
-    void setPercentage(double initSize,QString output);
+    void calcPercentage(double fullSize,double currentSize);
+    bool getChartState();
+
+private slots:
+    void on_chkCharts_clicked();
+
 private:
-Ui::IpvcMain *ui;
+    QGraphicsScene gs;
+    qreal prev_x;
+    qreal prev_y;
+    qreal prev_wj;
+    double totalFullSize;
+    double totalSize;
+    int time;
+    Ui::IpvcMain *ui;
 };
 
 #endif // IPVCMAIN_H
