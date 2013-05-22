@@ -53,17 +53,13 @@ void IpvcMain::on_btnEncoder_clicked()
             out.append(".ipvc");
 
         if(QFile::exists(out)){
-            int res=QMessageBox::information(this,"File already exists.","There is another file exists with the name you specified. Do you want to overwrite it?","Yes","No",0);
-            if(res==1){
-                return;
-            }
+
+            setEnableControls(false);
+            IpvcEncoder ie(this,in,out);
+            setEnableControls(true);
+
+            totalFullSize=totalSize=0;
         }
-
-        setEnableControls(false);
-        IpvcEncoder ie(this,in,out);
-        setEnableControls(true);
-
-        totalFullSize=totalSize=0;
     }
 }
 void IpvcMain::setEnableControls(bool state){

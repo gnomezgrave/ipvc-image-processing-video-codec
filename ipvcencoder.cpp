@@ -45,11 +45,6 @@ IpvcEncoder::IpvcEncoder(IpvcMain* parent,QString inputfile, QString outputfile)
     //Output file
     FILE *ipvc_file = fopen(outputfile.toStdString().c_str(), "w");
 
-    if(!parent->getChartState()){
-       namedWindow("Original_Video", CV_WINDOW_AUTOSIZE);
-       namedWindow("Overlay_Video", CV_WINDOW_AUTOSIZE);
-       namedWindow("Output_Video", CV_WINDOW_AUTOSIZE);
-    }
 
     //Input video capture
     VideoCapture capture;
@@ -57,9 +52,21 @@ IpvcEncoder::IpvcEncoder(IpvcMain* parent,QString inputfile, QString outputfile)
     Mat frame;
 
     capture >> frame;
-    if (frame.type() != CV_8UC3) {
-        cerr << "Image type not supported." << endl;
+    if (frame.empty()) {
+        cerr << "Can\'t extract frame data"<<endl;
+        return;
     }
+    if (frame.type() != CV_8UC3) {
+        cerr << "Image type not supported. Is of type:" << frame.type() << endl;
+        return;
+    }
+
+    if(!parent->getChartState()){
+       namedWindow("Original_Video", CV_WINDOW_AUTOSIZE);
+       namedWindow("Overlay_Video", CV_WINDOW_AUTOSIZE);
+       namedWindow("Output_Video", CV_WINDOW_AUTOSIZE);
+    }
+
 
     unsigned height = frame.rows;
     unsigned width = frame.cols;
