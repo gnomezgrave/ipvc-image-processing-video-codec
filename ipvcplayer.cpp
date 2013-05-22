@@ -10,17 +10,21 @@
 using namespace cv;
 using namespace std;
 
+// Player : Decodes the encoded file
 IpvcPlayer::IpvcPlayer(QString inputfile) {
     unsigned frame=0;
     unsigned block_w, block_h;
     namedWindow("Output", CV_WINDOW_AUTOSIZE);
 
-    ipvc_file_header_t fh;
+
     bool common_header_read=false;
     ushort common_header_size=0;
     vector<uchar> bheader;
+
+    // Read the file header
     FILE *ipvc_file = fopen(inputfile.toStdString().c_str(), "r");
     fread(&fh, 1, sizeof (ipvc_file_header_t), ipvc_file);
+
     std::cerr << "Header info" << std::endl;
     std::cerr << " height " << fh.height << std::endl;
     std::cerr << " width " << fh.width << std::endl;
@@ -36,6 +40,7 @@ IpvcPlayer::IpvcPlayer(QString inputfile) {
     unsigned fid;
     output = Mat::zeros(output.size(),CV_8UC4);
 
+    // Begin the reading
     while (fread(&type, 1, sizeof (uchar), ipvc_file) > 0) {
 
         fread(&fid, 1, sizeof (unsigned), ipvc_file);
@@ -44,7 +49,7 @@ IpvcPlayer::IpvcPlayer(QString inputfile) {
             waitKey(1000/fh.rate);
             frame++;
         }
-
+        // Full frames
         if (type == 126) {
             ipvc_frame_full_header_read_t fhx;
             fread(&fhx, 1, sizeof (ipvc_frame_full_header_read_t), ipvc_file);
@@ -53,28 +58,27 @@ IpvcPlayer::IpvcPlayer(QString inputfile) {
             fread(&jpegbuff, 1, fhx.frame_size, ipvc_file);
             vector<uchar> vdata(jpegbuff,jpegbuff + fhx.frame_size);
 
+            // JPEG Decode the full frame
             Mat m_buff= imdecode(Mat(vdata),1);
-            //std::cerr << "Full frame" << std::endl;
 
+            // Read the full image
             for (int i = 0; i < fh.height; i++) {
                 for (int j = 0; j < fh.width; j++) {
-                    //uchar rgb[3];
-                    //fread(&rgb, 1, 3, ipvc_file);
                     Vec3b vv= m_buff.at<Vec3b>(i,j);
-                    output.at<Vec4b> (i, j)[0] = vv[0]; //Vec4b(rgb[0], rgb[1], rgb[2],255);
+                    output.at<Vec4b> (i, j)[0] = vv[0];
                     output.at<Vec4b> (i, j)[1] = vv[1];
                     output.at<Vec4b> (i, j)[2] = vv[2];
                     output.at<Vec4b> (i, j)[3] = 255;
                 }
             }
 
-        } else if (type == 122) {
+        } else if (type == 122) {   // Frames with Block moves
 
-            //cerr << "Move" << std::endl;
             ipvc_frame_header_read_t ff;
 
             fread(&ff, 1, sizeof (ipvc_frame_header_read_t), ipvc_file);
 
+            // JPEG header will be stored. Read only one time.
             if (!common_header_read) {
                 ipvc_block_header_read_t hb;
 
@@ -100,7 +104,7 @@ IpvcPlayer::IpvcPlayer(QString inputfile) {
                 if (h>fh.height ||w>fh.width){
                     break;
                 }
-                uchar jpegbuff[bbc.block_size];
+                uchar jpegbuff[bbc.block_size]; // JPEG Buffer
 
                 int jpeg_wr=0;
                 for (jpeg_wr=0;jpeg_wr<(int)common_header_size;jpeg_wr++) {
@@ -112,6 +116,7 @@ IpvcPlayer::IpvcPlayer(QString inputfile) {
 
                 vector<uchar> vdata(jpegbuff,jpegbuff + bbc.block_size);
 
+                //  JPEG decoder
                 Mat m_buff= imdecode(Mat(vdata),1);
 
 
@@ -160,9 +165,12 @@ IpvcPlayer::IpvcPlayer(QString inputfile) {
                 dstTri[3] = Point2f( mv.move_h+(float)fh.block_size, (float)mv.move_w);
 
 
+                // Block moves in fractional points
                 warp_mat = getAffineTransform( srcTri, dstTri );
                 warpAffine( block, blockx , warp_mat, Size(fh.block_size+TBORDER,fh.block_size+TBORDER) ,INTER_LINEAR, BORDER_TRANSPARENT);
 
+
+                // Write the block output to Mat
                 for (int i=0;i<fh.block_size;i++){
                     for (int j=0;j<fh.block_size;j++){
 
@@ -176,6 +184,7 @@ IpvcPlayer::IpvcPlayer(QString inputfile) {
 
             }
         }
+        // Show the output
         imshow("Output", output);
 
     }

@@ -146,7 +146,7 @@ IpvcEncoder::IpvcEncoder(IpvcMain* parent,QString inputfile, QString outputfile)
 
         }
     }
-
+    // Create the output file header
     ipvc_file_header_t fh;
     fh.height = height;
     fh.width = width;
@@ -204,6 +204,7 @@ IpvcEncoder::IpvcEncoder(IpvcMain* parent,QString inputfile, QString outputfile)
             frameSizeWithoutJpeg+=sizeof(frh)+total_size;
         }
 
+        //
         for (unsigned i = 0; i < blocks_h; i++) {
             for (unsigned j = 0; j < blocks_w; j++) {
                 bool changed = false;
