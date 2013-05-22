@@ -37,6 +37,7 @@ private:
     double totalFullSize;
     double totalSize;
     int time;
+    void setEnableControls(bool state);
     Ui::IpvcMain *ui;
 };
 

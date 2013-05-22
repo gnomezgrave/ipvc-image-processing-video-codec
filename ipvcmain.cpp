@@ -30,44 +30,55 @@ IpvcMain::IpvcMain(QWidget *parent) :
 }
 void IpvcMain::on_btnPlayer_clicked()
 {
-    QString in = QFileDialog::getOpenFileName(this,"Select a file to play","./", "ipvc Files (*.ipvc)");
-    IpvcPlayer ip(in);
+    while(true){
+        QString in = QFileDialog::getOpenFileName(this,"Select a file to play","./", "ipvc Files (*.ipvc)");
+        if(in.isNull())continue;
+        setEnableControls(false);
+        IpvcPlayer ip(in);
+        setEnableControls(true);
+        break;
+    }
 }
 void IpvcMain::on_btnEncoder_clicked()
 {
     gs.clear();
+
     QString in = QFileDialog::getOpenFileName(this,"Select a file to encode","./", "video Files (*.*)");
     //QString out = QFileDialog::getExistingDirectory(this, tr("Open Directory"),"./",QFileDialog::ShowDirsOnly| QFileDialog::DontResolveSymlinks);
+    QString out=NULL;
     if(!in.isNull()){
-        QString out = QFileDialog::getOpenFileName(this,"Select the path for the output file and type a name","./", "ipvc Files (*.ipvc)");
-        if(!out.endsWith(".ipvc"))  out.append(".ipvc");
-        while(FILE *f=fopen(out.toStdString().c_str(),"r")){
-            int res=QMessageBox::information(this,"File already exists.","There is another file exists with the name you specified. Do you want to overwrite it?","Yes","No",0);
-            if(res!=0){
-                out = QFileDialog::getOpenFileName(this,"Select the path for the output file and type a name","./", "ipvc Files (*.ipvc)");
-                if(!out.endsWith(".ipvc"))  out.append(".ipvc");
-            }else{
-                break;
+        bool in_loop=true;
+        while(in_loop){
+
+            out = QFileDialog::getOpenFileName(this,"Select the path for the output file and type a name","./", "ipvc Files (*.ipvc)");
+            if(!out.endsWith(".ipvc"))  out.append(".ipvc");
+            if(out==".ipvc")continue;
+            if(FILE *f=fopen(out.toStdString().c_str(),"r")){
+                int res=QMessageBox::information(this,"File already exists.","There is another file exists with the name you specified. Do you want to overwrite it?","Yes","No",0);
+                if(res==0){
+                    in_loop=false;
+                    break;
+                }
+                fclose(f);
             }
-            fclose(f);
+
         }
-        ui->chkCharts->setEnabled(false);
-        ui->chkOri->setEnabled(false);
-        ui->chkOvr->setEnabled(false);
-        ui->chkOut->setEnabled(false);
-
+        setEnableControls(false);
         IpvcEncoder ie(this,in,out);
-
-        ui->chkCharts->setEnabled(true);
-        ui->chkOri->setEnabled(!ui->chkCharts->isEnabled());
-        ui->chkOvr->setEnabled(!ui->chkCharts->isEnabled());
-        ui->chkOut->setEnabled(!ui->chkCharts->isEnabled());
+        setEnableControls(true);
 
         totalFullSize=totalSize=0;
-
     }
-
 }
+void IpvcMain::setEnableControls(bool state){
+    ui->chkCharts->setEnabled(state);
+    ui->chkOri->setEnabled(state);
+    ui->chkOvr->setEnabled(state);
+    ui->chkOut->setEnabled(state);
+    ui->btnEncoder->setEnabled(state);
+    ui->btnPlayer->setEnabled(state);
+}
+
 void IpvcMain::on_btnExit_clicked()
 {
     exit(0);
