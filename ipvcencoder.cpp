@@ -27,6 +27,8 @@ int mask[3] = {-1, 0, 1};
 // A seperate Encoder object will be created for each video file.
 IpvcEncoder::IpvcEncoder(IpvcMain* parent,QString inputfile, QString outputfile) {
 
+    // lists that keep block moves and new block writes until they are
+    // written to the file
     list<ipvc_block_move_t> l_block_moves;
     list<ipvc_block_t> l_blocks;
 
@@ -35,7 +37,6 @@ IpvcEncoder::IpvcEncoder(IpvcMain* parent,QString inputfile, QString outputfile)
 
     frameSize=frameSizeWithoutJpeg=0;
 
-    char press = -1;
     bool common_header_written=false;
     ushort common_header_size=0;
     vector<uchar> bheader;
@@ -79,31 +80,43 @@ IpvcEncoder::IpvcEncoder(IpvcMain* parent,QString inputfile, QString outputfile)
 
     bool mark[blocks_h][blocks_w];
     ipvc_modified_by_t modd[blocks_h][blocks_w];
-
+    // image1 and image2 provide buffers to keep the latest two
+    // frames read from the input in memory without copying
+    // image and previmage pointers are swapped on each read of a
+    // new frame
     Mat m_image1(height, width, CV_8UC3);
     Mat m_image2(height, width, CV_8UC3);
+
+    // output image buffers
     Mat m_output(height, width, CV_8UC3);
     Mat m_output_overlay(height, width, CV_8UC3);
     Mat m_final(height, width, CV_8UC3);
 
+    // stores greyscale per block and edges per block(complexity)
     Mat m_complexity_b(BLOCK_SIZE, BLOCK_SIZE, CV_8UC1);
     Mat m_grey_b(BLOCK_SIZE, BLOCK_SIZE, CV_8UC1);
+
+    // greyscale block buffers again using the buffer swaping used
+    // in image1 and image2
     Mat m_output_greys_f1[blocks_h][blocks_w];
     Mat m_output_greys_f2[blocks_h][blocks_w];
 
-    Mat m_output_greys[blocks_h][blocks_w];
+    // temp buffer used at various places for various operations
     Mat m_temp[blocks_h][blocks_w];
 
+    // translation matrices for block moves
     Mat m_translate[blocks_h][blocks_w];
 
+    // single block buffer
     Mat m_block(BLOCK_SIZE,BLOCK_SIZE,CV_8UC3);
 
+
+    //initialize buffers
     for (unsigned i = 0; i < blocks_h; i++) {
         for (unsigned j = 0; j < blocks_w; j++) {
 
             m_translate[i][j].create(2, 3, CV_32FC1);
 
-            m_output_greys[i][j].create(BLOCK_SIZE, BLOCK_SIZE, CV_8UC1);
             m_output_greys_f1[i][j].create(BLOCK_SIZE, BLOCK_SIZE, CV_32FC1);
             m_output_greys_f2[i][j].create(BLOCK_SIZE, BLOCK_SIZE, CV_32FC1);
 
@@ -119,8 +132,6 @@ IpvcEncoder::IpvcEncoder(IpvcMain* parent,QString inputfile, QString outputfile)
         }
     }
 
-
-
     Mat *greys_f, *prevgreys_f;
 
     Mat *image = NULL, *previmage = NULL;
@@ -133,17 +144,14 @@ IpvcEncoder::IpvcEncoder(IpvcMain* parent,QString inputfile, QString outputfile)
     greys_f = &m_output_greys_f1[0][0];
     prevgreys_f = &m_output_greys_f2[0][0];
 
-
     for (unsigned i = 0; i < height; i++) {
         for (unsigned j = 0; j < width; j++) {
-            image->at<Vec3b > (i, j) = Vec3b(0, 0, 0);
+            image->at<Vec3b > (i, j) = frame.at<Vec3b>(i,j);
             previmage->at<Vec3b > (i, j) = Vec3b(0, 0, 0);
-
             output->at<Vec3b > (i, j) = Vec3b(0, 0, 0);
 
             m_output_greys_f1[i % blocks_h][j % blocks_w].at<float>(i % BLOCK_SIZE, j % BLOCK_SIZE) = 0.0f;
             m_output_greys_f2[i % blocks_h][j % blocks_w].at<float>(i % BLOCK_SIZE, j % BLOCK_SIZE) = 0.0f;
-
         }
     }
 
@@ -164,10 +172,10 @@ IpvcEncoder::IpvcEncoder(IpvcMain* parent,QString inputfile, QString outputfile)
         }
     }
 
-    capture >> frame;
+
     frame.copyTo(m_output);
     current_frame = 2;
-    while (!frame.empty() && press == -1) {
+    while (!frame.empty()) {
         unsigned frame_differences = 0;
         m_output_overlay = Mat::zeros(height, width, CV_8UC3);
         for (unsigned i = 0; i < height; i++) {
@@ -255,7 +263,7 @@ IpvcEncoder::IpvcEncoder(IpvcMain* parent,QString inputfile, QString outputfile)
                             }
                         }
                     }
-
+                    // for high correction in a block move to a block move
                     if (complexity > BLOCK_SIZE * BLOCK_SIZE * 0.001 && correct > BLOCK_SIZE * BLOCK_SIZE * 0.95 && !edge) {
 
                         for (int a = 0; a < BLOCK_SIZE; a++) {
@@ -290,7 +298,7 @@ IpvcEncoder::IpvcEncoder(IpvcMain* parent,QString inputfile, QString outputfile)
 
                         l_block_moves.push_back(block);
 
-                    } else if (correct > 0.9) {
+                    } else if (correct > BLOCK_SIZE * BLOCK_SIZE * 0.9) {
                         mark[i][j] = false;
                         changed = false;
                     }
@@ -313,6 +321,8 @@ IpvcEncoder::IpvcEncoder(IpvcMain* parent,QString inputfile, QString outputfile)
 
                         }
                     }
+                    // check for differences in non marked(not block moves) in order to write
+                    // new blocks
                     if (differences >0) {
                         ipvc_block_t block;
                         block.block_id = ARR2D(blocks_w, i, j);
@@ -328,10 +338,11 @@ IpvcEncoder::IpvcEncoder(IpvcMain* parent,QString inputfile, QString outputfile)
                         }
                         vector<uchar> ff;
                         vector<uchar> noheader;
+                        // use OpenCV's inbuilt JPEG encoder
                         imencode(".jpg",m_block,ff);
 
                         block.block_size = ff.size();
-
+                        // strip JPEG header and keep it for future use
                         if (bheader.size()==0) {
                             for (int i=0;i<ff.size()-2;i++){
                                 if (ff[i]==255 && ff[i+1]==218) {
@@ -345,10 +356,6 @@ IpvcEncoder::IpvcEncoder(IpvcMain* parent,QString inputfile, QString outputfile)
                                 cerr<<"Warning: cant strip JPEG header"<<endl;
                             }
                         }
-                        /*
-                        FILE *fo=fopen("dd2.jpg","w");
-                        fwrite(ff.data(),1,block.block_size,fo);
-                        fclose(fo);*/
 
                         for (int i=common_header_size+2;i<ff.size();i++) {
                             noheader.push_back(ff[i]);
@@ -362,8 +369,8 @@ IpvcEncoder::IpvcEncoder(IpvcMain* parent,QString inputfile, QString outputfile)
                     }
 
                 }
-
-                if (changed && 1) {
+                // draw overlay
+                if (changed && parent->getIfOverlayVideoShown()) {
                     if (modd[i][j] == IPVC_DIFF) { //purple
                         for (int a = 0; a < BLOCK_SIZE; a++) {
                             for (int b = 0; b < BLOCK_SIZE; b++) {
@@ -387,7 +394,7 @@ IpvcEncoder::IpvcEncoder(IpvcMain* parent,QString inputfile, QString outputfile)
             }
         }
 
-
+        // write block moves and new blocks to file
         if (!l_blocks.empty() || !l_block_moves.empty()) {
 
             ipvc_frame_header_t frh;
@@ -396,7 +403,7 @@ IpvcEncoder::IpvcEncoder(IpvcMain* parent,QString inputfile, QString outputfile)
             frh.blocks = l_blocks.size();
 
             frh.block_moves = l_block_moves.size();
-            //cout<<frh.blocks<<" "<<frh.frame_id<<" "<<frh.block_moves<<endl;
+
             fwrite(&frh, 1, sizeof (ipvc_frame_header_t), ipvc_file);
             frameSizeWithoutJpeg+=sizeof(frh);
             frameSize+=sizeof(frh);
@@ -404,14 +411,13 @@ IpvcEncoder::IpvcEncoder(IpvcMain* parent,QString inputfile, QString outputfile)
                 if (!common_header_written) {
                     ipvc_block_header_read_t hb;
                     hb.block_header_size=(ushort)bheader.size();
-                    //cout<<hb.block_header_size;
-//                    cout<<"block header";
-                      fwrite(&hb,1,sizeof(ipvc_block_header_read_t), ipvc_file);
-                      frameSize+=sizeof(ipvc_block_header_read_t);
-//                    cout<<" ";
-                      fwrite((uchar*)bheader.data(),1,bheader.size(),ipvc_file);
-                      frameSize+=bheader.size();
-//                    cout<<endl;
+
+                    fwrite(&hb,1,sizeof(ipvc_block_header_read_t), ipvc_file);
+                    frameSize+=sizeof(ipvc_block_header_read_t);
+
+                    fwrite((uchar*)bheader.data(),1,bheader.size(),ipvc_file);
+                    frameSize+=bheader.size();
+
                     common_header_written=true;
                 }
 
@@ -421,30 +427,30 @@ IpvcEncoder::IpvcEncoder(IpvcMain* parent,QString inputfile, QString outputfile)
                     ipvc_block_read_t br;
                     br.block_id = bb.block_id;
                     br.block_size = bb.block_size;
-                    //cout<<"block write";
+
                     fwrite(&br, 1, sizeof (ipvc_block_read_t), ipvc_file);
-                    //cout<<" ";
                     fwrite((uchar*)bb.data.data(), 1, bb.data.size(), ipvc_file);
 
                     frameSizeWithoutJpeg+=sizeof (ipvc_block_read_t)+BLOCK_SIZE*BLOCK_SIZE*3;
                     frameSize+=sizeof (ipvc_block_read_t)+bb.data.size();
-                   // cout<<endl;
+
                 }
             }
             if (!l_block_moves.empty()) {
                 for (list<ipvc_block_move_t>::iterator it = l_block_moves.begin(); it != l_block_moves.end(); it++) {
                     ipvc_block_move_t bm = *it;
-                    //cout<<"block move";
+
                     fwrite(&bm, 1, sizeof (ipvc_block_move_t), ipvc_file);
 
                     frameSizeWithoutJpeg+=sizeof (ipvc_block_move_t);
                     frameSize+=sizeof (ipvc_block_move_t);
-                    //cout<<endl;
+
                 }
             }
             l_blocks.clear();
             l_block_moves.clear();
         }
+        // add overlay on top of the output image
         addWeighted(m_output, 1.0, m_output_overlay, 0.7, 0.0, m_final);
         if(parent->getIfOriginalVideoShown())
             imshow("Original_Video", frame);
@@ -453,16 +459,17 @@ IpvcEncoder::IpvcEncoder(IpvcMain* parent,QString inputfile, QString outputfile)
         if(parent->getIfOverlayVideoShown())
             imshow("Output_Video", m_output);
 
-        press = waitKey(1);
+        waitKey(1);
 
         capture >> frame;
         current_frame++;
+
+        // frame switching
         if (image == &m_image1) {
             image = &m_image2;
             previmage = &m_image1;
             greys_f = &m_output_greys_f2[0][0];
             prevgreys_f = &m_output_greys_f1[0][0];
-
         } else {
             image = &m_image1;
             previmage = &m_image2;

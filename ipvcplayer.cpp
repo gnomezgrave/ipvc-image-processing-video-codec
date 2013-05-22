@@ -22,6 +22,7 @@ IpvcPlayer::IpvcPlayer(QString inputfile) {
     vector<uchar> bheader;
 
     // Read the file header
+    ipvc_file_header_t fh;
     FILE *ipvc_file = fopen(inputfile.toStdString().c_str(), "r");
     fread(&fh, 1, sizeof (ipvc_file_header_t), ipvc_file);
 
@@ -71,8 +72,8 @@ IpvcPlayer::IpvcPlayer(QString inputfile) {
                     output.at<Vec4b> (i, j)[3] = 255;
                 }
             }
-
-        } else if (type == 122) {   // Frames with Block moves
+        // Frames with new Blocks and/or Block moves
+        } else if (type == 122) {
 
             ipvc_frame_header_read_t ff;
 

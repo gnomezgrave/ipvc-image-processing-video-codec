@@ -47,22 +47,18 @@ void IpvcMain::on_btnEncoder_clicked()
     //QString out = QFileDialog::getExistingDirectory(this, tr("Open Directory"),"./",QFileDialog::ShowDirsOnly| QFileDialog::DontResolveSymlinks);
     QString out=NULL;
     if(!in.isNull()){
-        bool in_loop=true;
-        while(in_loop){
 
-            out = QFileDialog::getOpenFileName(this,"Select the path for the output file and type a name","./", "ipvc Files (*.ipvc)");
-            if(!out.endsWith(".ipvc"))  out.append(".ipvc");
-            if(out==".ipvc")continue;
-            if(FILE *f=fopen(out.toStdString().c_str(),"r")){
-                int res=QMessageBox::information(this,"File already exists.","There is another file exists with the name you specified. Do you want to overwrite it?","Yes","No",0);
-                if(res==0){
-                    in_loop=false;
-                    break;
-                }
-                fclose(f);
+        out = QFileDialog::getSaveFileName(this,"Select the path for the output file and type a name","./", "ipvc Files (*.ipvc)");
+        if(!out.endsWith(".ipvc"))
+            out.append(".ipvc");
+
+        if(QFile::exists(out)){
+            int res=QMessageBox::information(this,"File already exists.","There is another file exists with the name you specified. Do you want to overwrite it?","Yes","No",0);
+            if(res==1){
+                return;
             }
-
         }
+
         setEnableControls(false);
         IpvcEncoder ie(this,in,out);
         setEnableControls(true);

@@ -1,7 +1,7 @@
 #ifndef IPVC_H
 #define IPVC_H
 
-// use block sizes <140
+// use block sizes <140 (size constrained because we use unsigned shorts
 #define BLOCK_SIZE 20
 
 #include <opencv2/core/core.hpp>
@@ -20,12 +20,16 @@ struct __attribute__((packed)) ipvc_frame_full_header_t {
     unsigned frame_size;
 };
 
+// this is a dynamic header, on the first time of writing this
+// in a file it'll add the block's JPEG header in this header for the
+// consecutive writes this header would not include that
 struct __attribute__((packed)) ipvc_frame_header_t {
     uchar frame_type; // 122: blocks
     // there will be
     // ushort block_header_size;
     // uchar block_header_data[];
-    // here on the first block thats being read
+    // here on the first block thats being read for the JPEG
+    // header
     unsigned frame_id;
     ushort blocks;
     ushort block_moves;
@@ -48,7 +52,8 @@ struct __attribute__((packed)) ipvc_block_read_t {
     ushort block_size;
 };
 
-struct __attribute__((packed)) ipvc_block_t {
+// internal struct doesn't get written to file
+struct ipvc_block_t {
     ushort block_id;
     ushort block_size;
     std::vector<uchar> data;
