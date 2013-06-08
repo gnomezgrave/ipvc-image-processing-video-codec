@@ -52,14 +52,13 @@ void IpvcMain::on_btnEncoder_clicked()
         if(!out.endsWith(".ipvc"))
             out.append(".ipvc");
 
-        if(QFile::exists(out)){
 
             setEnableControls(false);
             IpvcEncoder ie(this,in,out);
             setEnableControls(true);
 
             totalFullSize=totalSize=0;
-        }
+
     }
 }
 void IpvcMain::setEnableControls(bool state){
